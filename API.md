@@ -31,7 +31,7 @@ Returns the public app configuration.
   "appName": "Disposable Temp Mail",
   "mailDomain": "example.com",
   "mailDomains": ["example.com", "another-domain.my.id"],
-  "webHost": "mail.example.com"
+  "webHost": "tmail.example.com"
 }
 ```
 
@@ -279,7 +279,7 @@ curl -s "https://YOUR_DOMAIN/api/inboxes/test123%40example.com/messages" \
 ## Full flow example
 
 ```bash
-DOMAIN="mail.YOURDOMAIN.com"
+DOMAIN="tmail.YOURDOMAIN.com"
 
 # 1. Get session
 SESSION=$(curl -s https://$DOMAIN/api/session | jq -r '.sessionId')

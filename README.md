@@ -89,14 +89,14 @@ action = "process"
 
 # Custom domain — CHANGE THIS to your own domain
 [[routes]]
-pattern = "mail.YOURDOMAIN.com"
+pattern = "tmail.YOURDOMAIN.com"
 custom_domain = true
 
 # Environment — CHANGE THESE
 [vars]
 APP_NAME = "Disposable Temp Mail"
 MAIL_DOMAIN = "YOURDOMAIN.com"
-WEB_HOST = "mail.YOURDOMAIN.com"
+WEB_HOST = "tmail.YOURDOMAIN.com"
 
 # Static assets (don't change)
 [assets]
@@ -108,7 +108,7 @@ enabled = true
 
 **All three `vars` + the routes `pattern` must be updated:**
 - `YOURDOMAIN.com` → your actual domain (e.g. `example.com`)
-- `mail.YOURDOMAIN.com` → the subdomain for the web UI
+- `tmail.YOURDOMAIN.com` → the subdomain for the web UI
 
 ---
 
@@ -166,7 +166,7 @@ After a successful deploy, you'll see:
 
 ```
 Deployed disposable-temp-mail triggers
-  mail.YOURDOMAIN.com (custom domain)
+  tmail.YOURDOMAIN.com (custom domain)
 ```
 
 ---
@@ -178,7 +178,7 @@ Deployed disposable-temp-mail triggers
 Cloudflare automatically creates the DNS record for your Worker's custom domain. If it doesn't:
 
 - Go to **Cloudflare Dashboard → Workers & Pages → disposable-temp-mail → Settings → Domains**
-- The custom domain `mail.YOURDOMAIN.com` should already be listed
+- The custom domain `tmail.YOURDOMAIN.com` should already be listed
 
 ### 7b. MX Records (automatic with Email Routing)
 
@@ -211,7 +211,7 @@ If you don't already have an SPF record, add one so emails don't get flagged as 
 
 ## Step 8 — Test it
 
-1. Open `https://mail.YOURDOMAIN.com` in your browser
+1. Open `https://tmail.YOURDOMAIN.com` in your browser
 2. Click **New** → **Random** to create a disposable address
 3. Send an email from Gmail/any provider to that address
 4. Click **Refresh** — the email appears in your inbox

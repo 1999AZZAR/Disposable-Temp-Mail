@@ -50,7 +50,7 @@ api.get('/config', (c) => {
     appName: c.env.APP_NAME || 'Disposable Temp Mail',
     mailDomain: domains[0] || 'example.com',
     mailDomains: domains,
-    webHost: c.env.WEB_HOST || 'mail.example.com',
+    webHost: c.env.WEB_HOST || 'tmail.example.com',
   });
 });
 

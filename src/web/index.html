@@ -3,47 +3,113 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Disposable Temp Mail — self-hosted anonymous disposable inboxes on Cloudflare Workers." />
     <title>Disposable Temp Mail</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%238185f8'/%3E%3Cstop offset='100%25' style='stop-color:%236366f1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Ctext x='32' y='46' font-family='Inter,sans-serif' font-size='36' font-weight='700' fill='white' text-anchor='middle'%3ET%3C/text%3E%3C/svg%3E" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232f6fed'/%3E%3Cpath d='M14 22l18 13 18-13' stroke='white' stroke-width='5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Crect x='14' y='20' width='36' height='26' rx='3' stroke='white' stroke-width='5' fill='none'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div class="app">
-      <header>
-        <h1 id="appTitle">Disposable Temp Mail</h1>
-        <p id="appSubtitle">Disposable inbox</p>
+    <a class="skip-link" href="#reader">Skip to messages</a>
+
+    <div class="page">
+      <header class="masthead">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          </span>
+          <div class="brand-text">
+            <h1 id="appTitle">Disposable Temp Mail</h1>
+            <p id="appSubtitle">Anonymous disposable inboxes</p>
+          </div>
+        </div>
+        <p class="session-badge" id="sessionBadge">
+          <span class="session-dot" aria-hidden="true"></span>
+          <span id="sessionStatus">Connecting&hellip;</span>
+        </p>
       </header>
 
-      <section class="toolbar">
-        <select id="inboxSelect"></select>
-        <button id="copyBtn">📋 Copy</button>
-        <button id="refreshBtn">🔄 Refresh</button>
-        <button id="newBtn">＋ New</button>
-        <button id="deleteBtn" class="danger">🗑 Delete</button>
-      </section>
+      <main class="layout">
+        <aside class="rail" aria-labelledby="railHeading">
+          <div class="rail-head">
+            <h2 id="railHeading">Inboxes</h2>
+            <span class="count-pill" id="inboxCount" aria-live="polite">0</span>
+          </div>
 
-      <section class="new-box hidden" id="newBox">
-        <input id="localPartInput" placeholder="Custom name or leave empty for random" />
-        <select id="domainSelect"></select>
-        <button id="createCustomBtn">✦ Create</button>
-        <button id="createRandomBtn">🎲 Random</button>
-      </section>
+          <form class="composer" id="composerForm" autocomplete="off">
+            <label class="field-label" for="localPartInput">New address</label>
+            <div class="composer-row">
+              <input
+                id="localPartInput"
+                name="localPart"
+                type="text"
+                inputmode="email"
+                maxlength="64"
+                pattern="[A-Za-z0-9._-]+"
+                placeholder="Custom name or leave empty for random"
+                aria-describedby="localPartHint"
+              />
+              <select id="domainSelect" name="domain" aria-label="Domain"></select>
+            </div>
+            <p class="field-hint" id="localPartHint">Letters, numbers, dots, underscores, and hyphens only.</p>
+            <div class="composer-actions">
+              <button type="submit" class="btn btn-primary" id="createCustomBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                <span>Create</span>
+              </button>
+              <button type="button" class="btn btn-secondary" id="createRandomBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.25" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.25" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1.25" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1.25" fill="currentColor" stroke="none"/></svg>
+                <span>Random</span>
+              </button>
+            </div>
+          </form>
 
-      <section class="panel">
-        <div class="panel-head">
-          <h2 id="currentInbox">No inbox selected</h2>
-          <span id="messageCount">0 messages</span>
-        </div>
-        <div id="messageList" class="message-list"></div>
-      </section>
+          <ul class="inbox-list" id="inboxList" role="listbox" aria-label="Your inboxes" aria-describedby="inboxListHint"></ul>
+          <p class="field-hint" id="inboxListHint">Inboxes are visible only in this browser session.</p>
+        </aside>
 
-      <footer>
-        <p>Disposable Temp Mail — self-hosted on Cloudflare Workers</p>
+        <section class="reader" id="reader" aria-labelledby="currentInbox">
+          <div class="reader-head">
+            <div class="reader-title">
+              <p class="eyebrow">Currently reading</p>
+              <h2 id="currentInbox">No inbox selected</h2>
+              <p class="message-count" id="messageCount" aria-live="polite">0 messages</p>
+            </div>
+            <div class="reader-actions" role="toolbar" aria-label="Inbox actions">
+              <button type="button" class="btn btn-ghost" id="copyBtn" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <span>Copy</span>
+              </button>
+              <button type="button" class="btn btn-ghost" id="refreshBtn" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                <span>Refresh</span>
+              </button>
+              <button type="button" class="btn btn-danger-ghost" id="deleteBtn" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                <span>Remove</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="message-list" id="messageList" aria-live="polite"></div>
+        </section>
+      </main>
+
+      <footer class="colophon">
+        <p>Disposable Temp Mail &mdash; self-hosted on Cloudflare Workers. Messages are tied to your anonymous browser session.</p>
       </footer>
     </div>
 
-    <div class="toast-container" id="toastContainer"></div>
+    <dialog class="confirm-dialog" id="deleteDialog" aria-labelledby="deleteDialogTitle">
+      <h2 id="deleteDialogTitle">Remove inbox from this session?</h2>
+      <p id="deleteDialogText">This only unlinks the address from your browser. Received messages stay in the database.</p>
+      <form method="dialog" class="confirm-actions">
+        <button type="submit" class="btn btn-secondary" value="cancel">Keep</button>
+        <button type="submit" class="btn btn-danger" id="confirmDeleteBtn" value="delete">Remove</button>
+      </form>
+    </dialog>
 
-    <script src="/app.js"></script>
+    <div class="toast-region" id="toastContainer" aria-live="polite" aria-atomic="false"></div>
+
+    <script src="/app.js" defer></script>
   </body>
 </html>

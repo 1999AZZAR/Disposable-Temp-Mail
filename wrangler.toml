@@ -18,9 +18,9 @@ database_id = ""
 action = "process"
 
 # ---- Custom domain routes ----
-# CHANGE THIS to your own domain (e.g. mail.example.com)
+# CHANGE THIS to your own domain (e.g. tmail.example.com)
 [[routes]]
-pattern = "mail.YOURDOMAIN.com"
+pattern = "tmail.YOURDOMAIN.com"
 custom_domain = true
 
 # ---- Environment variables ----
@@ -28,7 +28,7 @@ custom_domain = true
 [vars]
 APP_NAME = "Disposable Temp Mail"
 MAIL_DOMAIN = "YOURDOMAIN.com"
-WEB_HOST = "mail.YOURDOMAIN.com"
+WEB_HOST = "tmail.YOURDOMAIN.com"
 
 # ---- Static assets (web frontend) ----
 [assets]
