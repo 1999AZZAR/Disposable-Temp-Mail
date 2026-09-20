@@ -23,12 +23,21 @@ action = "process"
 pattern = "tmail.YOURDOMAIN.com"
 custom_domain = true
 
+# ---- Scheduled cleanup (daily retention purge) ----
+[triggers]
+crons = ["0 3 * * *"]
+
 # ---- Environment variables ----
 # CHANGE THESE to your own domain
 [vars]
 APP_NAME = "Disposable Temp Mail"
 MAIL_DOMAIN = "YOURDOMAIN.com"
 WEB_HOST = "tmail.YOURDOMAIN.com"
+# Data retention for messages/inboxes (days); sessions expire after 30 days
+RETENTION_DAYS = "7"
+# Abuse controls (allowed hits per hour)
+RATE_LIMIT_INBOXES_PER_HOUR = "20"
+RATE_LIMIT_SESSIONS_PER_HOUR = "10"
 
 # ---- Static assets (web frontend) ----
 [assets]

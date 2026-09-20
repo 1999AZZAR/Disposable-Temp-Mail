@@ -1,5 +1,6 @@
 import api from './api/routes';
 import { handleEmail } from './email-handler';
+import { purgeExpired } from './cleanup';
 import type { EmailHandlerEnv } from './email-handler';
 import type { ApiEnv } from './api/routes';
 
@@ -40,5 +41,15 @@ export default {
    */
   async email(message: ForwardableEmailMessage, env: Env, _ctx: ExecutionContext): Promise<void> {
     await handleEmail(message, env);
+  },
+
+  /**
+   * Scheduled handler - daily retention purge (see [triggers] in wrangler.toml).
+   * Deletes expired messages, empty inboxes, old sessions, and stale rate-limit rows.
+   */
+  async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
+    const retention = parseInt(env.RETENTION_DAYS || '7', 10);
+    const result = await purgeExpired(env.DB, Number.isFinite(retention) && retention > 0 ? retention : 7);
+    console.log(`cleanup: ${result.messages} messages, ${result.inboxes} inboxes, ${result.sessions} sessions, ${result.rateHits} rate rows purged`);
   },
 };

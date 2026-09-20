@@ -323,6 +323,7 @@ All error responses follow this format:
 | `400` | Missing `x-session-id` header, or invalid domain in POST `/api/inboxes` |
 | `403` | Unauthorized — inbox not linked to your session |
 | `404` | Route not found |
+| `429` | Rate limit exceeded — 20 inboxes/session/hour, 10 sessions/IP/hour (see `Retry-After`) |
 
 ---
 

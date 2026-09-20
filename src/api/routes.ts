@@ -12,12 +12,32 @@ import {
   isInboxInSession,
 } from '../db/queries';
 import { generateUniqueAddress } from '../utils/random-address';
+import { checkRateLimit, rateLimitHeaders } from '../utils/rate-limit';
 
 export interface ApiEnv {
   DB: D1Database;
   APP_NAME: string;
   MAIL_DOMAIN: string;
   WEB_HOST: string;
+  RETENTION_DAYS?: string;
+  RATE_LIMIT_INBOXES_PER_HOUR?: string;
+  RATE_LIMIT_SESSIONS_PER_HOUR?: string;
+}
+
+function numVar(value: string | undefined, fallback: number): number {
+  const n = parseInt(value || '', 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function clientIp(c: any): string {
+  return (c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'unknown').trim();
+}
+
+function tooMany(c: any, limit: number, retryAfter: number) {
+  c.header('Retry-After', String(retryAfter));
+  c.header('X-RateLimit-Limit', String(limit));
+  c.header('X-RateLimit-Remaining', '0');
+  return c.json({ error: 'Rate limit exceeded, try again later' }, 429);
 }
 
 function getDomains(env: ApiEnv): string[] {
@@ -58,6 +78,9 @@ api.get('/config', (c) => {
 api.get('/session', async (c) => {
   let sid = sessionId(c);
   if (!sid) {
+    const limit = numVar(c.env.RATE_LIMIT_SESSIONS_PER_HOUR, 10);
+    const rl = await checkRateLimit(c.env.DB, `session:${clientIp(c)}`, limit, 3600);
+    if (!rl.allowed) return tooMany(c, limit, rl.retryAfter);
     sid = crypto.randomUUID();
   }
   await ensureSession(c.env.DB, sid);
@@ -77,6 +100,11 @@ api.get('/inboxes', async (c) => {
 api.post('/inboxes', async (c) => {
   const sid = requireSession(c);
   if (!sid) return c.json({ error: 'Missing x-session-id' }, 400);
+
+  const inboxLimit = numVar(c.env.RATE_LIMIT_INBOXES_PER_HOUR, 20);
+  const rl = await checkRateLimit(c.env.DB, `inbox:${sid}`, inboxLimit, 3600);
+  if (!rl.allowed) return tooMany(c, inboxLimit, rl.retryAfter);
+  for (const [k, v] of Object.entries(rateLimitHeaders(rl, inboxLimit))) c.header(k, v);
 
   const body = await c.req.json().catch(() => ({}));
   const domains = getDomains(c.env);

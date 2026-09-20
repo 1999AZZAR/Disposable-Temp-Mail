@@ -141,11 +141,15 @@ Push the schema to your **remote** D1 database on Cloudflare:
 npx wrangler d1 execute disposable-temp-mail-db --remote --file=src/db/schema.sql
 ```
 
-This creates four tables:
+This creates five tables:
 - `inboxes` — email addresses
 - `messages` — received emails
 - `sessions` — browser session tokens
 - `session_inboxes` — which inboxes belong to which session
+- `rate_hits` — rate-limit counters (pruned daily)
+
+> **Existing deployments:** re-run the command after pulling updates — the
+> schema uses `CREATE TABLE IF NOT EXISTS`, so it safely adds missing tables.
 
 > **Note:** The `--remote` flag is important — without it, the schema only applies locally. You want it on Cloudflare's servers.
 
@@ -254,15 +258,17 @@ disposable-temp-mail/
 ├── tsconfig.json
 ├── .gitignore
 └── src/
-    ├── index.ts               # Entry point: fetch() + email() handlers
+    ├── index.ts               # Entry point: fetch() + email() + scheduled() handlers
+    ├── cleanup.ts             # Daily retention purge (messages, inboxes, sessions)
     ├── email-handler.ts       # Parses inbound email via PostalMime → D1
     ├── api/
     │   └── routes.ts          # Hono router: /api/config, /api/session, /api/inboxes, /api/messages
     ├── db/
-    │   ├── schema.sql         # D1 tables (inboxes, messages, sessions, session_inboxes)
+    │   ├── schema.sql         # D1 tables (inboxes, messages, sessions, session_inboxes, rate_hits)
     │   └── queries.ts         # Typed query functions
     ├── utils/
-    │   └── random-address.ts  # Human-like random email generator
+    │   ├── random-address.ts  # Human-like random email generator
+    │   └── rate-limit.ts      # D1-backed sliding-window rate limiter
     └── web/
         ├── index.html         # Frontend UI
         ├── app.js             # Frontend logic (vanilla JS)
@@ -282,6 +288,17 @@ disposable-temp-mail/
 | **Static hosting** | Cloudflare Workers Assets (edge CDN) |
 | **Language** | TypeScript |
 | **CLI** | Wrangler v4 |
+
+---
+
+## Abuse controls & retention
+
+- **Rate limits** (per hour, tunable in `wrangler.toml`): 20 inbox creations
+  per session, 10 new sessions per IP. Exceeded requests get `429` with
+  `Retry-After` and `X-RateLimit-*` headers.
+- **Retention:** a daily cron (`0 3 * * *`) deletes messages and empty inboxes
+  older than `RETENTION_DAYS` (default 7), sessions older than 30 days, and
+  stale rate-limit rows. Tune via `RETENTION_DAYS` in `[vars]`.
 
 ---
 
