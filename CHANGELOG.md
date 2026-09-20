@@ -11,6 +11,14 @@ All notable changes to this project are documented here. Format follows
   10 new sessions per IP/hour, `429` + `Retry-After` on excess.
 - Daily cleanup cron: purges expired messages, empty inboxes, old sessions,
   and stale rate-limit rows. Retention via `RETENTION_DAYS` (default 7 days).
+- Unit tests (`npm test`): 15 tests over address generation, rate limiting,
+  queries, retention purge, and email parsing — no test dependencies, runs on
+  Node's built-in runner with an in-memory SQLite D1 shim.
+
+### Fixed
+
+- Dependency vulnerabilities: bumped `hono`, `wrangler`,
+  `@cloudflare/workers-types` — `npm audit` reports 0 vulnerabilities.
 
 ### Security
 

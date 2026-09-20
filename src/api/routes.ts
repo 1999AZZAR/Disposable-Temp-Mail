@@ -10,9 +10,9 @@ import {
   linkInboxToSession,
   unlinkInboxFromSession,
   isInboxInSession,
-} from '../db/queries';
-import { generateUniqueAddress } from '../utils/random-address';
-import { checkRateLimit, rateLimitHeaders } from '../utils/rate-limit';
+} from '../db/queries.ts';
+import { generateUniqueAddress } from '../utils/random-address.ts';
+import { checkRateLimit, rateLimitHeaders } from '../utils/rate-limit.ts';
 
 export interface ApiEnv {
   DB: D1Database;

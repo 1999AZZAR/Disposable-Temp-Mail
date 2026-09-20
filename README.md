@@ -302,6 +302,18 @@ disposable-temp-mail/
 
 ---
 
+## Tests
+
+Zero-dependency suite on Node's built-in runner with an in-memory SQLite
+D1 shim (`src/test-helpers.ts`) — covers address generation, rate limiting,
+queries, retention purge, and email parsing:
+
+```bash
+npm test
+```
+
+---
+
 ## Troubleshooting
 
 ### "This site can't be reached / DNS_PROBE_FINISHED_NXDOMAIN"

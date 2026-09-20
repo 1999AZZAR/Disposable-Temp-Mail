@@ -1,8 +1,8 @@
-import api from './api/routes';
-import { handleEmail } from './email-handler';
-import { purgeExpired } from './cleanup';
-import type { EmailHandlerEnv } from './email-handler';
-import type { ApiEnv } from './api/routes';
+import api from './api/routes.ts';
+import { handleEmail } from './email-handler.ts';
+import { purgeExpired } from './cleanup.ts';
+import type { EmailHandlerEnv } from './email-handler.ts';
+import type { ApiEnv } from './api/routes.ts';
 
 /**
  * Disposable Temp Mail on Cloudflare Workers

@@ -7,15 +7,17 @@
     "deploy": "wrangler deploy",
     "db:create": "wrangler d1 create disposable-temp-mail-db",
     "db:migrate": "wrangler d1 execute disposable-temp-mail-db --remote --file=src/db/schema.sql",
-    "db:local": "wrangler d1 execute disposable-temp-mail-db --local --file=src/db/schema.sql"
+    "db:local": "wrangler d1 execute disposable-temp-mail-db --local --file=src/db/schema.sql",
+    "test": "node --test src/utils/random-address.test.ts src/utils/rate-limit.test.ts src/db/queries.test.ts src/cleanup.test.ts src/email-handler.test.ts"
   },
   "dependencies": {
-    "hono": "^4.4.0",
+    "hono": "^4.13.8",
     "postal-mime": "^2.4.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250509.0",
+    "@cloudflare/workers-types": "^5.20260920.1",
+    "@types/node": "^26.6.2",
     "typescript": "^5.5.0",
-    "wrangler": "^4.105.0"
+    "wrangler": "^4.135.0"
   }
 }

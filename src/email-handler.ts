@@ -1,6 +1,6 @@
 import PostalMime from 'postal-mime';
 import type { D1Database } from '@cloudflare/workers-types';
-import { createInbox, inboxExists, insertMessage } from './db/queries';
+import { createInbox, inboxExists, insertMessage } from './db/queries.ts';
 
 export interface EmailHandlerEnv {
   DB: D1Database;
