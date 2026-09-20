@@ -1,6 +1,6 @@
 /**
  * Human-like random email local-part generator.
- * Combines two Indonesian word lists + optional number suffix.
+ * Combines two expanded Indonesian word lists (~190 x ~165) + optional number suffix.
  * Ported from the original tempmail VPS project, then expanded.
  */
 
@@ -20,6 +20,23 @@ const FIRST = [
   // Nama orang / people
   'ananta', 'arjuna', 'bisma', 'dewa', 'dewi', 'galuh', 'kresna', 'sinta', 'wibawa', 'wisesa',
   'agung', 'abimanyu', 'cakra', 'dananjaya', 'prabu', 'ratna', 'sakti', 'satria', 'wira', 'widya',
+  // Makanan / food
+  'rendang', 'sate', 'gudeg', 'bakso', 'soto', 'sambal', 'kerupuk', 'tempe', 'tahu', 'cendol',
+  'klepon', 'onde', 'lapis', 'nagasari', 'getuk', 'cenil', 'lupis', 'combro', 'misro', 'esbuah',
+  // Tempat / places
+  'jogja', 'bali', 'lombok', 'bandung', 'jakarta', 'surabaya', 'medan', 'makassar', 'papua', 'sumba',
+  'flores', 'toraja', 'dieng', 'bromo', 'rinjani', 'kerinci', 'toba', 'sentani', 'maninjau', 'kelimutu',
+  // Angkasa / sky
+  'komet', 'meteor', 'nebula', 'orbit', 'satelit', 'antariksa', 'cakrawala', 'kartika', 'lintang', 'angkasa',
+  // Wayang / characters
+  'anjani', 'ayunda', 'baskara', 'candika', 'gatotkaca', 'hanoman', 'nakula', 'sadewa', 'semar', 'petruk',
+  'gareng', 'bagong', 'srikandi', 'dewaruci', 'gayatri',
+  // Hewan / more animals
+  'komodo', 'anoa', 'bekantan', 'orangutan', 'tapir', 'dugong', 'penyu', 'kakatua', 'rangkong', 'maleo',
+  'biawak', 'tokek', 'katak', 'capung', 'kunang', 'jangkrik', 'buaya', 'julung', 'kadal',
+  // Tumbuhan / more plants
+  'kenanga', 'cempaka', 'kamboja', 'asoka', 'beringin', 'kelapa', 'aren', 'bakau', 'mahoni', 'trembesi',
+  'siwalan', 'nipah',
 ];
 
 const SECOND = [
@@ -37,6 +54,19 @@ const SECOND = [
   'aji', 'wira', 'ayu', 'sari', 'nugraha', 'permata', 'lestari', 'mahesa', 'karya', 'puspa',
   'rasa', 'bakti', 'citra', 'daya', 'dharma', 'gita', 'jiwa', 'karsa', 'kencana', 'loka',
   'mustika', 'nirmala', 'bentala', 'gerhana', 'kirana', 'mahkota', 'mentari', 'nusantara', 'purnama', 'sejati',
+  // Sifat / more traits
+  'berani', 'jujur', 'elok', 'rupawan', 'budiman', 'dermawan', 'perwira', 'arif', 'bijak', 'sigap',
+  'tanggap', 'terampil', 'ulet', 'gigih', 'tekun', 'tangguh', 'digdaya', 'linuwih',
+  // Warna / more colors
+  'toska', 'magenta', 'sepia', 'soga', 'zamrud', 'nilam', 'delima', 'jerami', 'gading', 'sawo',
+  // Kriya & musik / crafts & music
+  'batik', 'songket', 'ukiran', 'gerabah', 'tembikar', 'kendi', 'gamelan', 'gong', 'kendang', 'suling',
+  'rebab', 'bonang', 'saron', 'gambang',
+  // Alam / more nature
+  'kemarau', 'halimun', 'kabut', 'gerimis', 'petir', 'guntur', 'gulita', 'ombak', 'pasir', 'muara',
+  'teluk', 'selat', 'tanjung', 'ngarai', 'jurang',
+  // Makna / abstract
+  'pusaka', 'wahyu', 'sabda', 'pandita', 'wangsit', 'sasmita', 'prasetya',
 ];
 
 function pick<T>(arr: T[]): T {

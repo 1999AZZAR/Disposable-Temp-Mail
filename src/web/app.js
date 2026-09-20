@@ -30,6 +30,8 @@ const els = {
   deleteDialogText: $("deleteDialogText"),
   confirmDeleteBtn: $("confirmDeleteBtn"),
   toastContainer: $("toastContainer"),
+  themeToggle: $("themeToggle"),
+  themeToggleLabel: $("themeToggleLabel"),
 };
 
 const SESSION_KEY = "disposable_temp_mail_session_id";
@@ -41,6 +43,7 @@ const state = {
   inboxes: [],
   selected: "",
   messages: [],
+  openMessage: "",
   loadingMessages: false,
 };
 
@@ -48,7 +51,6 @@ const ICONS = {
   mail: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>',
   inbox: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
   alert: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
-  dot: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/></svg>',
 };
 
 function setSessionBadge(mode, text) {
@@ -67,6 +69,12 @@ function showToast(text, variant) {
     toast.classList.add("is-leaving");
     window.setTimeout(() => toast.remove(), 220);
   }, 2400);
+}
+
+function flashButton(button, kind) {
+  if (!button) return;
+  button.classList.add(kind === "error" ? "is-error" : "is-success");
+  window.setTimeout(() => button.classList.remove("is-success", "is-error"), 1200);
 }
 
 async function fetchJson(url, options = {}) {
@@ -102,7 +110,7 @@ async function loadConfig() {
   document.title = state.config.appName;
   els.appTitle.textContent = state.config.appName;
   els.appSubtitle.textContent = `Anonymous disposable inboxes for ${state.config.mailDomain}`;
-  els.localPartInput.placeholder = "Custom name or leave empty for random";
+  els.localPartInput.placeholder = "Custom name — empty for random";
 
   els.domainSelect.innerHTML = "";
   for (const domain of state.config.mailDomains) {
@@ -112,6 +120,7 @@ async function loadConfig() {
     els.domainSelect.appendChild(option);
   }
   els.domainSelect.style.display = state.config.mailDomains.length <= 1 ? "none" : "";
+  els.domainSelect.previousElementSibling.style.display = state.config.mailDomains.length <= 1 ? "none" : "";
 }
 
 async function ensureSession() {
@@ -129,7 +138,7 @@ function renderInboxList() {
   if (!state.inboxes.length) {
     const empty = document.createElement("li");
     empty.className = "inbox-empty";
-    empty.textContent = "No inboxes yet. Create your first address above.";
+    empty.textContent = "No entries yet. File your first address above.";
     els.inboxList.appendChild(empty);
     return;
   }
@@ -139,18 +148,14 @@ function renderInboxList() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "inbox-option";
-    button.setAttribute("role", "option");
     button.dataset.address = inbox.address;
     button.setAttribute("aria-selected", inbox.address === state.selected ? "true" : "false");
 
-    const icon = document.createElement("span");
-    icon.setAttribute("aria-hidden", "true");
-    icon.innerHTML = ICONS.dot;
     const label = document.createElement("span");
     label.className = "address";
     label.textContent = inbox.address;
 
-    button.append(icon, label);
+    button.appendChild(label);
     button.addEventListener("click", () => selectInbox(inbox.address));
     item.appendChild(button);
     els.inboxList.appendChild(item);
@@ -165,6 +170,7 @@ async function loadInboxes(selectedAddress) {
   if (!state.inboxes.length) {
     state.selected = "";
     state.messages = [];
+    state.openMessage = "";
     els.currentInbox.textContent = "No inbox selected";
     els.messageCount.textContent = "0 messages";
     lockReaderButtons(true);
@@ -175,6 +181,7 @@ async function loadInboxes(selectedAddress) {
 
   const valid = state.inboxes.some((inbox) => inbox.address === selectedAddress);
   state.selected = valid ? selectedAddress : state.inboxes[0].address;
+  state.openMessage = "";
   lockReaderButtons(false);
   renderInboxList();
   await loadMessages();
@@ -183,11 +190,25 @@ async function loadInboxes(selectedAddress) {
 async function selectInbox(address) {
   if (address === state.selected) return;
   state.selected = address;
+  state.openMessage = "";
   renderInboxList();
   await loadMessages();
 }
 
-/* ---------- Messages ---------- */
+/* ---------- Messages (ledger rows, click to expand) ---------- */
+
+function padNumber(n) {
+  return String(n).padStart(3, "0");
+}
+
+function formatWhen(value) {
+  if (!value) return "Unknown";
+  const date = new Date(typeof value === "number" ? value * 1000 : value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return date.toLocaleString(undefined, {
+    month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit",
+  });
+}
 
 function renderEmptyState(icon, title, body) {
   els.messageList.innerHTML = "";
@@ -208,40 +229,61 @@ function renderMessages() {
   els.messageList.innerHTML = "";
 
   if (!state.selected) {
-    renderEmptyState(ICONS.inbox, "No inbox selected", "Create an address to start receiving mail.");
+    renderEmptyState(ICONS.inbox, "No inbox selected", "File an address to start receiving mail.");
     return;
   }
 
   if (!state.messages.length) {
     renderEmptyState(
       ICONS.mail,
-      "Inbox is empty",
-      `Mail sent to ${state.selected} will appear here. Press Refresh to check again.`
+      "Ledger is empty",
+      `Mail sent to ${state.selected} will be filed here. Press Refresh to check again.`
     );
     return;
   }
 
-  for (const message of state.messages) {
-    const card = document.createElement("article");
-    card.className = "message-card";
+  state.messages.forEach((message, index) => {
+    const id = message.id || `${message.from_address}-${index}`;
+    const row = document.createElement("div");
+    row.className = "message-row" + (state.openMessage === id ? " is-open" : "");
 
-    const header = document.createElement("header");
+    const summary = document.createElement("button");
+    summary.type = "button";
+    summary.className = "message-summary";
+    summary.setAttribute("aria-expanded", state.openMessage === id ? "true" : "false");
+
+    const no = document.createElement("span");
+    no.className = "message-no";
+    no.textContent = padNumber(index + 1);
+
+    const from = document.createElement("span");
+    from.className = "message-from";
+    from.textContent = message.from_address || "Unknown sender";
+
     const subject = document.createElement("h3");
     subject.className = "message-subject";
     subject.textContent = message.subject || "(no subject)";
-    const meta = document.createElement("p");
-    meta.className = "message-meta";
-    const when = message.received_at ? new Date(message.received_at).toLocaleString() : "unknown time";
-    meta.textContent = `From ${message.from_address || "unknown sender"} · ${when}`;
-    header.append(subject, meta);
 
-    const body = document.createElement("div");
-    body.className = "message-body";
-    body.textContent = message.body || "";
+    const when = document.createElement("span");
+    when.className = "message-when";
+    when.textContent = formatWhen(message.received_at);
 
-    card.append(header, body);
-    els.messageList.appendChild(card);
-  }
+    summary.append(no, from, subject, when);
+    summary.addEventListener("click", () => {
+      state.openMessage = state.openMessage === id ? "" : id;
+      renderMessages();
+    });
+    row.appendChild(summary);
+
+    if (state.openMessage === id) {
+      const body = document.createElement("div");
+      body.className = "message-body";
+      body.textContent = message.body || "";
+      row.appendChild(body);
+    }
+
+    els.messageList.appendChild(row);
+  });
 }
 
 async function loadMessages() {
@@ -252,7 +294,12 @@ async function loadMessages() {
   els.messageList.innerHTML = "";
   const loading = document.createElement("div");
   loading.className = "loading-row";
-  loading.innerHTML = '<span class="spinner" aria-hidden="true"></span><span>Loading messages&hellip;</span>';
+  const spinner = document.createElement("span");
+  spinner.className = "spinner";
+  spinner.setAttribute("aria-hidden", "true");
+  const label = document.createElement("span");
+  label.textContent = "Loading messages…";
+  loading.append(spinner, label);
   els.messageList.appendChild(loading);
   setBusy(els.refreshBtn, true);
 
@@ -278,6 +325,7 @@ async function copySelected() {
   try {
     await navigator.clipboard.writeText(state.selected);
     showToast("Address copied to clipboard.", "success");
+    flashButton(els.copyBtn, "ok");
   } catch {
     const temp = document.createElement("textarea");
     temp.value = state.selected;
@@ -286,6 +334,7 @@ async function copySelected() {
     document.execCommand("copy");
     temp.remove();
     showToast("Address copied to clipboard.", "success");
+    flashButton(els.copyBtn, "ok");
   }
 }
 
@@ -298,6 +347,7 @@ async function removeSelected() {
     await loadInboxes();
   } catch (error) {
     showToast(`Could not remove inbox: ${error.message || error}`, "error");
+    flashButton(els.deleteBtn, "error");
   } finally {
     setBusy(els.deleteBtn, false);
   }
@@ -315,7 +365,7 @@ async function createInbox(localPart) {
   });
   els.localPartInput.value = "";
   await loadInboxes(response.address);
-  showToast(`Address ${response.address} is ready.`, "success");
+  showToast(`Address ${response.address} is filed.`, "success");
 }
 
 async function handleComposerSubmit(event) {
@@ -323,14 +373,17 @@ async function handleComposerSubmit(event) {
   const localPart = els.localPartInput.value.trim().toLowerCase();
   if (!validateLocalPart(localPart)) {
     showToast("Use letters, numbers, dots, underscores, and hyphens only.", "error");
+    flashButton(els.createCustomBtn, "error");
     els.localPartInput.focus();
     return;
   }
   setBusy(els.createCustomBtn, true);
   try {
     await createInbox(localPart);
+    flashButton(els.createCustomBtn, "ok");
   } catch (error) {
     showToast(`Could not create address: ${error.message || error}`, "error");
+    flashButton(els.createCustomBtn, "error");
   } finally {
     setBusy(els.createCustomBtn, false);
   }
@@ -340,12 +393,35 @@ async function handleRandomCreate() {
   setBusy(els.createRandomBtn, true);
   try {
     await createInbox("");
+    flashButton(els.createRandomBtn, "ok");
   } catch (error) {
     showToast(`Could not create address: ${error.message || error}`, "error");
+    flashButton(els.createRandomBtn, "error");
   } finally {
     setBusy(els.createRandomBtn, false);
   }
 }
+
+/* ---------- Theme: light linen default, dark plate opt-in ---------- */
+
+const THEME_KEY = "tmail-theme";
+
+function setTheme(dark) {
+  if (dark) document.documentElement.setAttribute("data-theme", "dark");
+  else document.documentElement.removeAttribute("data-theme");
+  try {
+    localStorage.setItem(THEME_KEY, dark ? "dark" : "light");
+  } catch {
+    /* private mode: theme just won't persist */
+  }
+  els.themeToggle.setAttribute("aria-pressed", dark ? "true" : "false");
+  els.themeToggleLabel.textContent = dark ? "Light plate" : "Dark plate";
+}
+
+els.themeToggle.addEventListener("click", () => {
+  setTheme(document.documentElement.getAttribute("data-theme") !== "dark");
+});
+setTheme(document.documentElement.getAttribute("data-theme") === "dark");
 
 /* ---------- Events ---------- */
 
@@ -371,6 +447,22 @@ els.confirmDeleteBtn.addEventListener("click", (event) => {
     return;
   }
   removeSelected();
+});
+
+/* Keyboard layer: N = new entry, R = refresh. Inactive while typing. */
+document.addEventListener("keydown", (event) => {
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  const target = event.target;
+  if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT")) return;
+  if (typeof els.deleteDialog.open !== "undefined" && els.deleteDialog.open) return;
+  const key = event.key.toLowerCase();
+  if (key === "n") {
+    event.preventDefault();
+    els.localPartInput.focus();
+  } else if (key === "r" && state.selected && !state.loadingMessages) {
+    event.preventDefault();
+    loadMessages();
+  }
 });
 
 /* Gentle auto-refresh while the tab is visible. */
