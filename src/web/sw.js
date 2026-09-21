@@ -2,7 +2,7 @@
  * Cache-first for the app shell; API traffic always hits the network.
  * Version the cache name on shell changes so updates roll out cleanly. */
 
-const CACHE_NAME = "tmail-shell-v5";
+const CACHE_NAME = "tmail-shell-v6";
 const SHELL = [
   "/",
   "/index.html",
