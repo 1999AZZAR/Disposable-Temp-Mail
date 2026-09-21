@@ -8,3 +8,89 @@ dist/
 wrangler.toml
 
 conductor/
+
+# ---- dependencies ----
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+.pnp
+.pnp.js
+node_modules/.cache/
+
+# ---- build / output ----
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# ---- wrangler / cloudflare (local + secrets) ----
+.wrangler/
+.wrangler/*
+.dev.vars
+wrangler.toml
+
+# ---- local databases (D1 miniflare / sqlite) ----
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.db
+*.db-*
+.mf/
+
+# ---- env / secrets ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# ---- logs ----
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ---- OS ----
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ---- editors / IDEs ----
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+.vim/
+.emacs.d/
+*.code-workspace
+
+# ---- test / coverage ----
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+
+# ---- temp / misc ----
+tmp/
+temp/
+*.tmp
+*.bak
+*.orig
+~$*
+
+# ---- project-private docs ----
+conductor/
