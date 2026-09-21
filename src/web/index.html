@@ -71,14 +71,12 @@
                 maxlength="64"
                 pattern="[A-Za-z0-9._-]+"
                 placeholder="Custom name — empty for random"
-                aria-describedby="localPartHint"
+               
               />
               <label class="field-label" for="domainSelect">Domain</label>
               <select id="domainSelect" name="domain"></select>
               <label class="field-label" for="retentionSelect">Keep for</label>
-              <select id="retentionSelect" name="retentionDays" aria-describedby="retentionHint"></select>
-              <p class="field-hint" id="localPartHint">Letters, numbers, dots, underscores, hyphens. Max 64.</p>
-              <p class="field-hint" id="retentionHint">How long the address survives. Renew anytime to restart the clock.</p>
+              <select id="retentionSelect" name="retentionDays"></select>
               <div class="turnstile-slot" id="turnstileSlot" hidden>
                 <div id="turnstileWidget"></div>
               </div>
@@ -143,9 +141,9 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 <span>Copy</span>
               </button>
-              <button type="button" class="btn btn-ghost" id="copyCodeBtn" disabled>
+              <button type="button" class="btn btn-ghost" id="transferBtn" disabled>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                <span>Code</span>
+                <span>Transfer</span>
               </button>
               <button type="button" class="btn btn-ghost" id="refreshBtn" disabled>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
@@ -176,6 +174,9 @@
           <a href="/terms.html">Terms of Use</a>
           <span aria-hidden="true">·</span>
           <a href="/privacy.html">Privacy Policy</a>
+
+          <span aria-hidden="true">·</span>
+          <a href="https://github.com/1999AZZAR/Disposable-Temp-Mail" rel="noopener">Source</a>
         </nav>
         <p class="micro">Disposable Temp Mail · Press N for new entry, R to refresh</p>
       </footer>
@@ -191,9 +192,24 @@
       </form>
     </dialog>
 
+    <dialog class="confirm-dialog" id="qrDialog" aria-labelledby="qrDialogTitle">
+      <p class="micro">Transfer plate</p>
+      <h2 id="qrDialogTitle">Shelve this inbox elsewhere</h2>
+      <figure class="qr-figure" id="qrFigure">
+        <div id="qrCode" role="img" aria-label="QR code linking this inbox"></div>
+      </figure>
+      <p class="micro">Scan with another device — the inbox shelves itself there. Anyone holding this plate can read its mail; keep it close.</p>
+      <p class="transfer-code" id="qrCodeText"></p>
+      <form method="dialog" class="confirm-actions">
+        <button type="button" class="btn btn-ghost" id="qrCopyBtn">Copy code</button>
+        <button type="submit" class="btn btn-secondary" value="close">Close</button>
+      </form>
+    </dialog>
+
     <div class="toast-region" id="toastContainer" aria-live="polite" aria-atomic="false"></div>
 
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+    <script src="/qrcodegen.js" defer></script>
     <script src="/app.js" defer></script>
   </body>
 </html>

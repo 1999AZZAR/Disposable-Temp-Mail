@@ -28,13 +28,17 @@ const els = {
   createBtn: $("createBtn"),
   claimForm: $("claimForm"),
   claimCodeInput: $("claimCodeInput"),
+  qrDialog: $("qrDialog"),
+  qrCode: $("qrCode"),
+  qrCodeText: $("qrCodeText"),
+  qrCopyBtn: $("qrCopyBtn"),
   claimBtn: $("claimBtn"),
   currentInbox: $("currentInbox"),
   messageCount: $("messageCount"),
   transferHint: $("transferHint"),
   messageList: $("messageList"),
   copyBtn: $("copyBtn"),
-  copyCodeBtn: $("copyCodeBtn"),
+  transferBtn: $("transferBtn"),
   refreshBtn: $("refreshBtn"),
   deleteBtn: $("deleteBtn"),
   deleteDialog: $("deleteDialog"),
@@ -103,7 +107,7 @@ function setBusy(button, busy) {
 }
 
 function lockReaderButtons(locked) {
-  for (const button of [els.copyBtn, els.copyCodeBtn, els.refreshBtn, els.renewBtn, els.deleteBtn]) {
+  for (const button of [els.copyBtn, els.transferBtn, els.refreshBtn, els.renewBtn, els.deleteBtn]) {
     button.dataset.locked = locked ? "true" : "false";
     button.disabled = locked;
   }
@@ -360,7 +364,45 @@ function renderTransferHint() {
   stamp.className = "transfer-code";
   stamp.textContent = code;
   els.transferHint.appendChild(stamp);
-  els.transferHint.append(" — enter it on another device to shelve this inbox there.");
+  els.transferHint.append(" — enter it on another device, or scan its plate, to shelve this inbox there.");
+}
+
+function claimUrlFor(code) {
+  return `${window.location.origin}/?claim=${encodeURIComponent(code)}`;
+}
+
+function buildQrSvg(text) {
+  const qr = qrcodegen.QrCode.encodeText(text, qrcodegen.QrCode.Ecc.MEDIUM);
+  const border = 4;
+  const size = qr.size + border * 2;
+  const parts = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" role="img" aria-label="QR code linking this inbox">`];
+  parts.push(`<rect width="${size}" height="${size}" fill="#EFE9DC"/>`);
+  for (let y = 0; y < qr.size; y += 1) {
+    for (let x = 0; x < qr.size; x += 1) {
+      if (qr.getModule(x, y)) parts.push(`<rect x="${x + border}" y="${y + border}" width="1" height="1" fill="#2A2520"/>`);
+    }
+  }
+  parts.push("</svg>");
+  return parts.join("");
+}
+
+function openQrDialog() {
+  const code = selectedTransferCode();
+  if (!code) return;
+  els.qrCode.innerHTML = "";
+  if (typeof qrcodegen !== "undefined") {
+    const wrap = document.createElement("div");
+    wrap.innerHTML = buildQrSvg(claimUrlFor(code));
+    els.qrCode.append(wrap.firstChild);
+  } else {
+    els.qrCode.textContent = "QR unavailable offline — use the code below.";
+  }
+  els.qrCodeText.textContent = code;
+  if (typeof els.qrDialog.showModal === "function") {
+    els.qrDialog.showModal();
+  } else {
+    copyTransferCode();
+  }
 }
 
 async function copyTransferCode() {
@@ -377,7 +419,18 @@ async function copyTransferCode() {
     temp.remove();
   }
   showToast("Transfer code copied to clipboard.", "success");
-  flashButton(els.copyCodeBtn, "ok");
+  flashButton(els.transferBtn, "ok");
+}
+
+async function claimInbox(rawCode) {
+  const code = String(rawCode || "").trim();
+  if (!code) throw new Error("Enter a transfer code first.");
+  const response = await fetchJson("/api/inboxes/claim", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+  await loadInboxes(response.address);
+  return response.address;
 }
 
 async function handleClaimSubmit(event) {
@@ -391,13 +444,9 @@ async function handleClaimSubmit(event) {
   }
   setBusy(els.claimBtn, true);
   try {
-    const response = await fetchJson("/api/inboxes/claim", {
-      method: "POST",
-      body: JSON.stringify({ code }),
-    });
+    const address = await claimInbox(code);
     els.claimCodeInput.value = "";
-    await loadInboxes(response.address);
-    showToast(`Address ${response.address} is shelved here.`, "success");
+    showToast(`Address ${address} is shelved here.`, "success");
     flashButton(els.claimBtn, "ok");
   } catch (error) {
     showToast(`Could not link inbox: ${error.message || error}`, "error");
@@ -666,7 +715,8 @@ setTheme(document.documentElement.getAttribute("data-theme") === "dark");
 els.composerForm.addEventListener("submit", handleComposerSubmit);
 els.claimForm.addEventListener("submit", handleClaimSubmit);
 els.copyBtn.addEventListener("click", copySelected);
-els.copyCodeBtn.addEventListener("click", copyTransferCode);
+els.transferBtn.addEventListener("click", openQrDialog);
+els.qrCopyBtn.addEventListener("click", copyTransferCode);
 els.renewBtn.addEventListener("click", renewSelected);
 els.planSelect.addEventListener("change", handlePlanChange);
 els.refreshBtn.addEventListener("click", () => {
@@ -696,6 +746,7 @@ document.addEventListener("keydown", (event) => {
   const target = event.target;
   if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT")) return;
   if (typeof els.deleteDialog.open !== "undefined" && els.deleteDialog.open) return;
+  if (typeof els.qrDialog.open !== "undefined" && els.qrDialog.open) return;
   const key = event.key.toLowerCase();
   if (key === "n") {
     event.preventDefault();
@@ -721,6 +772,17 @@ window.setInterval(() => {
     await loadConfig();
     await ensureSession();
     await loadInboxes();
+    const params = new URLSearchParams(window.location.search);
+    const deepCode = params.get("claim");
+    if (deepCode) {
+      window.history.replaceState({}, "", window.location.pathname);
+      try {
+        const address = await claimInbox(deepCode);
+        showToast(`Address ${address} is shelved here.`, "success");
+      } catch (error) {
+        showToast(`Could not link inbox: ${error.message || error}`, "error");
+      }
+    }
   } catch (error) {
     console.error(error);
     setSessionBadge("error", "Connection failed");

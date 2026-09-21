@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Guide — how to use Disposable Temp Mail: create inboxes, retention plans, transfer codes, shortcuts." />
+    <meta name="description" content="Guide — how to use Disposable Temp Mail: create inboxes, read mail, retention plans, transfer codes and QR, shortcuts, limits, troubleshooting." />
     <link rel="canonical" href="https://tmail.hela.my.id/docs.html" />
     <title>Guide — Disposable Temp Mail</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -43,7 +43,8 @@
             <h2 id="g-what">What it is</h2>
           </div>
           <div class="prose">
-            <p>Disposable Temp Mail gives you anonymous email inboxes that need no account and no sign-up. Use one to receive confirmation codes, newsletters, or anything you don't want tied to your real address — then let it expire, or strike it when done.</p>
+            <p>Disposable Temp Mail gives you anonymous email inboxes with no account and no sign-up. Use one to receive confirmation codes, newsletters, or anything you don't want tied to your real address — then let it expire, or strike it when done.</p>
+            <p>It is <strong>receive-only</strong>: inboxes can take mail in, but never send. There is nothing to configure — file an entry and the address is live immediately.</p>
           </div>
         </section>
 
@@ -53,35 +54,120 @@
             <h2 id="g-create">Filing a new entry</h2>
           </div>
           <div class="prose">
-            <p>Type a name and press <strong>Create</strong> for a custom address, or leave the field empty and press <strong>Create</strong> for a random one. Pick how long to keep it: 7 days, 30 days, 90 days, or until you remove it.</p>
-            <p>Every new entry comes with a <strong>transfer code</strong>. Copy it with the Code button — entering it on another device links the same inbox there.</p>
+            <p>Type a name and press <strong>Create</strong> for a custom address, or leave the field empty and press <strong>Create</strong> for a random one. Names allow letters, numbers, dots, underscores, and hyphens, up to 64 characters.</p>
+            <p>Pick how long to keep it before filing: <strong>7 days</strong>, <strong>30 days</strong>, <strong>90 days</strong>, or <strong>until you remove it</strong>. A quick automatic bot check runs on creation to keep the service free for everyone.</p>
+          </div>
+        </section>
+
+        <section class="plate" aria-labelledby="g-read">
+          <div class="plate-head">
+            <p class="micro">03</p>
+            <h2 id="g-read">Reading the register</h2>
+          </div>
+          <div class="prose">
+            <p>Your entries are listed in the register on the left. Select one to open its reading room: incoming mail appears as ledger rows numbered with sender, subject, and arrival time.</p>
+            <ul>
+              <li><strong>Click a row</strong> to expand the full message.</li>
+              <li><strong>Copy</strong> copies the selected inbox address to the clipboard.</li>
+              <li><strong>Refresh</strong> checks for new mail now; the register also re-checks on its own while the tab is visible.</li>
+              <li>Keyboard: <strong>N</strong> files a new entry, <strong>R</strong> refreshes the register.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="plate" aria-labelledby="g-move">
+          <div class="plate-head">
+            <p class="micro">04</p>
+            <h2 id="g-move">Moving between devices</h2>
+          </div>
+          <div class="prose">
+            <p>Every entry carries a <strong>transfer code</strong> — four groups of four characters, easy to read aloud and type. To shelve an inbox on another device you have three ways, all equivalent:</p>
+            <ul>
+              <li><strong>Scan the plate:</strong> open the entry and press <strong>Transfer</strong> to show its QR. Scan it with the other device's camera — the inbox shelves itself there.</li>
+              <li><strong>Type the code:</strong> press <strong>Transfer</strong>, copy the code, and enter it in the other device's <em>Link an entry?</em> field.</li>
+              <li><strong>Open a link:</strong> the QR encodes a link of the form <em>/?claim=CODE</em> — opening it on any device links the inbox directly.</li>
+            </ul>
+            <p>Anyone holding a code or plate can read that inbox's mail, so keep them close — the same way you'd guard a spare key.</p>
           </div>
         </section>
 
         <section class="plate" aria-labelledby="g-keep">
           <div class="plate-head">
-            <p class="micro">03</p>
+            <p class="micro">05</p>
             <h2 id="g-keep">Keeping &amp; striking</h2>
           </div>
           <div class="prose">
             <ul>
-              <li><strong>Renew</strong> restarts an inbox's clock from today.</li>
-              <li><strong>Plan</strong> changes how long an inbox is kept.</li>
-              <li><strong>Strike from ledger</strong> deletes a single message.</li>
-              <li><strong>Remove</strong> unlinks an inbox from your browser (its messages stay in the archive until expiry).</li>
+              <li><strong>Renew</strong> restarts an inbox's clock from today — useful when a 7-day entry turns out to matter.</li>
+              <li><strong>Plan</strong> changes how long an inbox is kept, effective immediately.</li>
+              <li><strong>Strike from ledger</strong> deletes a single message inside an expanded row.</li>
+              <li><strong>Remove</strong> unlinks an inbox from your browser only. Its messages stay in the archive until expiry — and the entry can be shelved again any time with its transfer code.</li>
             </ul>
-            <p>Keyboard: <strong>N</strong> files a new entry, <strong>R</strong> refreshes the register.</p>
+          </div>
+        </section>
+
+        <section class="plate" aria-labelledby="g-plans">
+          <div class="plate-head">
+            <p class="micro">06</p>
+            <h2 id="g-plans">How long things survive</h2>
+          </div>
+          <div class="prose">
+            <p>Each inbox follows its own plan, counted from filing or from the last <strong>Renew</strong>. Messages follow their inbox's plan — except on <em>until-you-remove-it</em> entries, where individual messages are capped at 90 days so the archive can't grow forever. Expired entries and their mail are purged nightly.</p>
+          </div>
+        </section>
+
+        <section class="plate" aria-labelledby="g-private">
+          <div class="plate-head">
+            <p class="micro">07</p>
+            <h2 id="g-private">Sessions &amp; privacy</h2>
+          </div>
+          <div class="prose">
+            <p>There are no accounts: your browser holds a random session, and entries belong to whichever session shelved them. Clearing site data or switching browsers loses the shelf — but any entry can be recovered with its transfer code, which is why the <strong>Transfer</strong> plate matters. See the Privacy Policy for exactly what is stored and for how long.</p>
           </div>
         </section>
 
         <section class="plate" aria-labelledby="g-limits">
           <div class="plate-head">
-            <p class="micro">04</p>
+            <p class="micro">08</p>
             <h2 id="g-limits">Fair-use limits</h2>
           </div>
           <div class="prose">
-            <p>To keep the service free for everyone: 30 new inboxes per hour per network address, 20 per browser session, plus an automatic bot check on creation. Inboxes past their plan are purged nightly.</p>
-            <p>Install it as an app from your browser's address bar — it works offline as a shell and syncs when you're back.</p>
+            <p>To keep the service free for everyone: 30 new inboxes per hour per network address, 20 per browser session, and 30 inbox-linkings per hour per network address — plus the automatic bot check on creation. If a limit trips, wait out the hour; nothing is banned.</p>
+          </div>
+        </section>
+
+        <section class="plate" aria-labelledby="g-app">
+          <div class="plate-head">
+            <p class="micro">09</p>
+            <h2 id="g-app">Installing the app</h2>
+          </div>
+          <div class="prose">
+            <p>Install it from your browser's address bar for a standalone window and home-screen icon. The shell works offline; inbox data syncs whenever you're back online.</p>
+          </div>
+        </section>
+
+        <section class="plate" aria-labelledby="g-trouble">
+          <div class="plate-head">
+            <p class="micro">10</p>
+            <h2 id="g-trouble">When something misbehaves</h2>
+          </div>
+          <div class="prose">
+            <ul>
+              <li><strong>Mail hasn't arrived:</strong> delivery usually takes a few minutes and can stretch past ten at busy times. Press <strong>R</strong> and give it a quarter of an hour before assuming loss — and double-check the address spelling with the sender.</li>
+              <li><strong>Code rejected:</strong> transfer codes are consumed never — they stay valid for the inbox's whole life. Rejection means a typo (they tolerate case, spaces, and dashes) or the inbox already expired.</li>
+              <li><strong>Bot check loops:</strong> the challenge may ask you to tick a box on unusual networks. One pass covers the session.</li>
+              <li><strong>Entry vanished:</strong> site data was likely cleared. Re-shelve it with its transfer code.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="plate" aria-labelledby="g-selfhost">
+          <div class="plate-head">
+            <p class="micro">11</p>
+            <h2 id="g-selfhost">Running your own</h2>
+          </div>
+          <div class="prose">
+            <p>The whole service is open source and one-worker simple. Follow the <strong>Source</strong> link below for the repository, setup steps, and the API reference.</p>
           </div>
         </section>
       </main>
@@ -95,6 +181,9 @@
           <a href="/privacy.html">Privacy Policy</a>
           <span aria-hidden="true">·</span>
           <a href="/">Register</a>
+
+          <span aria-hidden="true">·</span>
+          <a href="https://github.com/1999AZZAR/Disposable-Temp-Mail" rel="noopener">Source</a>
         </nav>
       </footer>
     </div>
