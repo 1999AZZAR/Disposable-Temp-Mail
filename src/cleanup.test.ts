@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import type { D1Database } from '@cloudflare/workers-types';
 import { purgeExpired } from './cleanup.ts';
 import { createTestDb } from './test-helpers.ts';
-import { getMessages, getInbox, getSessionInboxes } from './db/queries.ts';
+import { getMessages, getInbox, getSessionInboxes, getOrCreateTransferCode, getAddressByTransferCode } from './db/queries.ts';
 
 const NOW = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
@@ -69,5 +69,20 @@ describe('purgeExpired', () => {
     assert.equal(r.sessions, 1);
     assert.equal(r.rateHits, 1);
     assert.deepEqual(await getSessionInboxes(db, 's-old'), []);
+  });
+
+  it('transfer codes die with their expired inbox and survive on active ones', async () => {
+    const db = createTestDb();
+    const s = seed(db);
+    await s.inbox('gone@example.com', '2020-01-01 00:00:00');
+    await s.inbox('kept@example.com', '2020-01-01 00:00:00');
+    await s.message('m1', 'kept@example.com', NOW);
+    const deadCode = await getOrCreateTransferCode(db, 'gone@example.com');
+    const liveCode = await getOrCreateTransferCode(db, 'kept@example.com');
+
+    const r = await purgeExpired(db, 7);
+    assert.equal(r.tokens, 1);
+    assert.equal(await getAddressByTransferCode(db, deadCode), null);
+    assert.equal(await getAddressByTransferCode(db, liveCode), 'kept@example.com');
   });
 });

@@ -2,8 +2,10 @@
 
 /* Disposable Temp Mail — inbox client (vanilla JS, no dependencies).
  * API contract: GET /api/config, GET /api/session, GET+POST /api/inboxes,
- * DELETE /api/inboxes/:address, GET /api/inboxes/:address/messages.
+ * POST /api/inboxes/claim, DELETE /api/inboxes/:address,
+ * GET /api/inboxes/:address/messages.
  * Session is carried in the x-session-id header and localStorage.
+ * Transfer codes link an inbox filed on another device to this session.
  */
 
 const $ = (id) => document.getElementById(id);
@@ -20,10 +22,15 @@ const els = {
   domainSelect: $("domainSelect"),
   createCustomBtn: $("createCustomBtn"),
   createRandomBtn: $("createRandomBtn"),
+  claimForm: $("claimForm"),
+  claimCodeInput: $("claimCodeInput"),
+  claimBtn: $("claimBtn"),
   currentInbox: $("currentInbox"),
   messageCount: $("messageCount"),
+  transferHint: $("transferHint"),
   messageList: $("messageList"),
   copyBtn: $("copyBtn"),
+  copyCodeBtn: $("copyCodeBtn"),
   refreshBtn: $("refreshBtn"),
   deleteBtn: $("deleteBtn"),
   deleteDialog: $("deleteDialog"),
@@ -92,7 +99,7 @@ function setBusy(button, busy) {
 }
 
 function lockReaderButtons(locked) {
-  for (const button of [els.copyBtn, els.refreshBtn, els.deleteBtn]) {
+  for (const button of [els.copyBtn, els.copyCodeBtn, els.refreshBtn, els.deleteBtn]) {
     button.dataset.locked = locked ? "true" : "false";
     button.disabled = locked;
   }
@@ -173,6 +180,7 @@ async function loadInboxes(selectedAddress) {
     state.openMessage = "";
     els.currentInbox.textContent = "No inbox selected";
     els.messageCount.textContent = "0 messages";
+    renderTransferHint();
     lockReaderButtons(true);
     renderInboxList();
     renderMessages();
@@ -184,6 +192,7 @@ async function loadInboxes(selectedAddress) {
   state.openMessage = "";
   lockReaderButtons(false);
   renderInboxList();
+  renderTransferHint();
   await loadMessages();
 }
 
@@ -192,7 +201,75 @@ async function selectInbox(address) {
   state.selected = address;
   state.openMessage = "";
   renderInboxList();
+  renderTransferHint();
   await loadMessages();
+}
+
+/* ---------- Transfer codes (cross-device) ---------- */
+
+function selectedTransferCode() {
+  const inbox = state.inboxes.find((entry) => entry.address === state.selected);
+  return (inbox && inbox.transferCode) || "";
+}
+
+function renderTransferHint() {
+  els.transferHint.innerHTML = "";
+  if (!state.selected) return;
+  const code = selectedTransferCode();
+  if (!code) {
+    els.transferHint.textContent = "Transfer code unavailable for this entry.";
+    return;
+  }
+  els.transferHint.textContent = "Transfer code ";
+  const stamp = document.createElement("span");
+  stamp.className = "transfer-code";
+  stamp.textContent = code;
+  els.transferHint.appendChild(stamp);
+  els.transferHint.append(" — enter it on another device to shelve this inbox there.");
+}
+
+async function copyTransferCode() {
+  const code = selectedTransferCode();
+  if (!code) return;
+  try {
+    await navigator.clipboard.writeText(code);
+  } catch {
+    const temp = document.createElement("textarea");
+    temp.value = code;
+    document.body.appendChild(temp);
+    temp.select();
+    document.execCommand("copy");
+    temp.remove();
+  }
+  showToast("Transfer code copied to clipboard.", "success");
+  flashButton(els.copyCodeBtn, "ok");
+}
+
+async function handleClaimSubmit(event) {
+  event.preventDefault();
+  const code = els.claimCodeInput.value.trim();
+  if (!code) {
+    showToast("Enter a transfer code first.", "error");
+    flashButton(els.claimBtn, "error");
+    els.claimCodeInput.focus();
+    return;
+  }
+  setBusy(els.claimBtn, true);
+  try {
+    const response = await fetchJson("/api/inboxes/claim", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
+    els.claimCodeInput.value = "";
+    await loadInboxes(response.address);
+    showToast(`Address ${response.address} is shelved here.`, "success");
+    flashButton(els.claimBtn, "ok");
+  } catch (error) {
+    showToast(`Could not link inbox: ${error.message || error}`, "error");
+    flashButton(els.claimBtn, "error");
+  } finally {
+    setBusy(els.claimBtn, false);
+  }
 }
 
 /* ---------- Messages (ledger rows, click to expand) ---------- */
@@ -365,7 +442,8 @@ async function createInbox(localPart) {
   });
   els.localPartInput.value = "";
   await loadInboxes(response.address);
-  showToast(`Address ${response.address} is filed.`, "success");
+  const code = response.transferCode ? ` Transfer code ${response.transferCode}.` : "";
+  showToast(`Address ${response.address} is filed.${code}`, "success");
 }
 
 async function handleComposerSubmit(event) {
@@ -427,7 +505,9 @@ setTheme(document.documentElement.getAttribute("data-theme") === "dark");
 
 els.composerForm.addEventListener("submit", handleComposerSubmit);
 els.createRandomBtn.addEventListener("click", handleRandomCreate);
+els.claimForm.addEventListener("submit", handleClaimSubmit);
 els.copyBtn.addEventListener("click", copySelected);
+els.copyCodeBtn.addEventListener("click", copyTransferCode);
 els.refreshBtn.addEventListener("click", () => {
   if (!state.loadingMessages) loadMessages();
 });

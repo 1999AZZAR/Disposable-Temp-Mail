@@ -91,10 +91,14 @@ Lists all inboxes linked to your session.
 [
   {
     "address": "kopihujan23@example.com",
-    "created_at": "2026-06-26 07:48:19"
+    "created_at": "2026-06-26 07:48:19",
+    "transferCode": "7KQ2-9MXD-4PWA-8ZTH"
   }
 ]
 ```
+
+Each inbox carries a `transferCode` — enter it on another device via
+`POST /api/inboxes/claim` to shelve the same inbox there. No account needed.
 
 **Errors**
 
@@ -158,7 +162,8 @@ Creates a new inbox (or claims an existing one) and links it to your session.
 ```json
 {
   "address": "langitbiru23@example.com",
-  "created_at": "2026-06-26 07:48:19"
+  "created_at": "2026-06-26 07:48:19",
+  "transferCode": "7KQ2-9MXD-4PWA-8ZTH"
 }
 ```
 
@@ -188,6 +193,55 @@ curl -s -X POST https://YOUR_DOMAIN/api/inboxes \
   -H "x-session-id: 550e8400-e29b-41d4-a716-446655440000" \
   -H "Content-Type: application/json" \
   -d '{}'
+```
+
+---
+
+### POST `/api/inboxes/claim`
+
+Links an inbox filed on another device to your session using its transfer
+code. The code is shown in the reading room under the selected inbox
+(`XXXX-XXXX-XXXX-XXXX`, 80-bit Crockford base32 — safe to type by hand).
+
+**Headers**
+
+| Header | Required | Description |
+|---|---|---|
+| `x-session-id` | **Yes** | Your session ID (the *other* device's session is not needed) |
+| `Content-Type` | Yes | `application/json` |
+
+**Request Body**
+
+| Field | Required | Description |
+|---|---|---|
+| `code` | **Yes** | Transfer code. Case-insensitive; hyphens and spaces optional. |
+
+**Response** `200 OK`
+
+```json
+{
+  "address": "langitbiru23@example.com",
+  "created_at": "2026-06-26 07:48:19",
+  "transferCode": "7KQ2-9MXD-4PWA-8ZTH"
+}
+```
+
+**Errors**
+
+| Status | Message | Meaning |
+|---|---|---|
+| `400` | `Missing x-session-id` | No session header provided |
+| `400` | `Invalid transfer code format` | Code is malformed |
+| `404` | `No inbox matches that transfer code` | Unknown or already-purged inbox |
+| `429` | Rate limit exceeded | 30 claims/IP/hour (see `Retry-After`) |
+
+**Usage**
+
+```bash
+curl -s -X POST https://YOUR_DOMAIN/api/inboxes/claim \
+  -H "x-session-id: 550e8400-e29b-41d4-a716-446655440000" \
+  -H "Content-Type: application/json" \
+  -d '{"code":"7KQ2-9MXD-4PWA-8ZTH"}'
 ```
 
 ---
@@ -323,7 +377,7 @@ All error responses follow this format:
 | `400` | Missing `x-session-id` header, or invalid domain in POST `/api/inboxes` |
 | `403` | Unauthorized — inbox not linked to your session |
 | `404` | Route not found |
-| `429` | Rate limit exceeded — 20 inboxes/session/hour, 10 sessions/IP/hour (see `Retry-After`) |
+| `429` | Rate limit exceeded — 20 inboxes/session/hour, 10 sessions/IP/hour, 30 claims/IP/hour (see `Retry-After`) |
 
 ---
 
@@ -338,3 +392,4 @@ Disposable Temp Mail uses per-browser anonymous sessions:
 | Open in incognito | Empty — different session |
 | Refresh same browser | Inboxes persist (via `localStorage`) |
 | Send email to inbox A | Inbox A gets it instantly (email handler auto-creates inbox record) |
+| Enter inbox A's transfer code on a second device | Inbox A appears there too — same mailbox, both browsers |

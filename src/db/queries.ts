@@ -1,8 +1,10 @@
 import type { D1Database } from '@cloudflare/workers-types';
+import { generateTransferCode } from '../utils/claim-token.ts';
 
 export interface Inbox {
   address: string;
   created_at: string;
+  transferCode?: string;
 }
 
 export interface Message {
@@ -37,14 +39,50 @@ export async function inboxExists(db: D1Database, address: string): Promise<bool
 export async function getSessionInboxes(db: D1Database, sessionId: string): Promise<Inbox[]> {
   return db
     .prepare(
-      `SELECT i.* FROM inboxes i
+      `SELECT i.*, t.token AS transferCode FROM inboxes i
        INNER JOIN session_inboxes si ON si.inbox_address = i.address
+       LEFT JOIN inbox_tokens t ON t.inbox_address = i.address
        WHERE si.session_id = ?
        ORDER BY i.created_at DESC`
     )
     .bind(sessionId)
     .all<Inbox>()
     .then((r) => r.results);
+}
+
+// ---- Transfer codes (cross-device claims) ----
+
+/** Fetch the inbox's transfer code, minting one on first use (backfills older inboxes). */
+export async function getOrCreateTransferCode(db: D1Database, address: string): Promise<string> {
+  const existing = await db
+    .prepare('SELECT token FROM inbox_tokens WHERE inbox_address = ?')
+    .bind(address)
+    .first<{ token: string }>();
+  if (existing) return existing.token;
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const token = generateTransferCode();
+    const done = await db
+      .prepare('INSERT OR IGNORE INTO inbox_tokens (inbox_address, token) VALUES (?, ?)')
+      .bind(address, token)
+      .run();
+    if ((done.meta.changes ?? 0) > 0) return token;
+    // Collision (or a concurrent mint won the race) — read back whatever is there.
+    const raced = await db
+      .prepare('SELECT token FROM inbox_tokens WHERE inbox_address = ?')
+      .bind(address)
+      .first<{ token: string }>();
+    if (raced) return raced.token;
+  }
+  throw new Error('Could not mint transfer code');
+}
+
+export async function getAddressByTransferCode(db: D1Database, token: string): Promise<string | null> {
+  const row = await db
+    .prepare('SELECT inbox_address FROM inbox_tokens WHERE token = ?')
+    .bind(token)
+    .first<{ inbox_address: string }>();
+  return row?.inbox_address ?? null;
 }
 
 // ---- Messages ----

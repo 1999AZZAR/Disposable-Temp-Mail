@@ -10,9 +10,12 @@ import {
   linkInboxToSession,
   unlinkInboxFromSession,
   isInboxInSession,
+  getOrCreateTransferCode,
+  getAddressByTransferCode,
 } from '../db/queries.ts';
 import { generateUniqueAddress } from '../utils/random-address.ts';
 import { checkRateLimit, rateLimitHeaders } from '../utils/rate-limit.ts';
+import { normalizeTransferCode } from '../utils/claim-token.ts';
 
 export interface ApiEnv {
   DB: D1Database;
@@ -22,6 +25,7 @@ export interface ApiEnv {
   RETENTION_DAYS?: string;
   RATE_LIMIT_INBOXES_PER_HOUR?: string;
   RATE_LIMIT_SESSIONS_PER_HOUR?: string;
+  RATE_LIMIT_CLAIMS_PER_HOUR?: string;
 }
 
 function numVar(value: string | undefined, fallback: number): number {
@@ -93,6 +97,10 @@ api.get('/inboxes', async (c) => {
   if (!sid) return c.json({ error: 'Missing x-session-id' }, 400);
 
   const inboxes = await getSessionInboxes(c.env.DB, sid);
+  // Lazy backfill: older inboxes minted before transfer codes existed
+  for (const inbox of inboxes) {
+    if (!inbox.transferCode) inbox.transferCode = await getOrCreateTransferCode(c.env.DB, inbox.address);
+  }
   return c.json(inboxes);
 });
 
@@ -136,8 +144,33 @@ api.post('/inboxes', async (c) => {
   // Link to session
   await linkInboxToSession(c.env.DB, sid, address);
 
+  const transferCode = await getOrCreateTransferCode(c.env.DB, address);
   const inbox = await getInbox(c.env.DB, address);
-  return c.json(inbox!, 201);
+  return c.json({ ...inbox!, transferCode }, 201);
+});
+
+// ---- POST /api/inboxes/claim ----
+// Link an inbox created on another device to this session via its transfer code.
+api.post('/inboxes/claim', async (c) => {
+  const sid = requireSession(c);
+  if (!sid) return c.json({ error: 'Missing x-session-id' }, 400);
+
+  const claimLimit = numVar(c.env.RATE_LIMIT_CLAIMS_PER_HOUR, 30);
+  const rl = await checkRateLimit(c.env.DB, `claim:${clientIp(c)}`, claimLimit, 3600);
+  if (!rl.allowed) return tooMany(c, claimLimit, rl.retryAfter);
+
+  const body = await c.req.json().catch(() => ({}));
+  const code = normalizeTransferCode(body.code || body.transferCode || '');
+  if (!code) return c.json({ error: 'Invalid transfer code format' }, 400);
+
+  const address = await getAddressByTransferCode(c.env.DB, code);
+  if (!address) return c.json({ error: 'No inbox matches that transfer code' }, 404);
+
+  await ensureSession(c.env.DB, sid);
+  await linkInboxToSession(c.env.DB, sid, address);
+  const transferCode = await getOrCreateTransferCode(c.env.DB, address);
+  const inbox = await getInbox(c.env.DB, address);
+  return c.json({ ...inbox!, transferCode });
 });
 
 // ---- DELETE /api/inboxes/:address ----

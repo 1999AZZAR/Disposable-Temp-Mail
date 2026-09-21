@@ -270,6 +270,13 @@ body {
 
 .composer { display: flex; flex-direction: column; gap: var(--space-2); }
 
+/* Second form in the same plate (transfer-code linker) sits below a hairline. */
+.plate .composer + .composer {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: var(--rule);
+}
+
 .field-label {
   font-family: var(--font-mono);
   font-size: var(--text-micro);
@@ -446,6 +453,15 @@ body {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--color-ink-2);
+}
+
+.transfer-hint { margin-top: var(--space-2); }
+
+.transfer-code {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-ink);
 }
 
 .reader-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }

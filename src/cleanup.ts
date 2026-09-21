@@ -5,15 +5,16 @@ export interface PurgeResult {
   inboxes: number;
   sessions: number;
   rateHits: number;
+  tokens: number;
 }
 
 /**
- * Delete expired data. Dependent session_inboxes links are removed
- * BEFORE their parent sessions/inboxes, so the purge is safe even on
- * databases that enforce foreign keys. Cutoffs are computed in SQL so
- * the cron needs no clock logic of its own. Inboxes are removed only
- * when they hold no messages, so an active address never loses its
- * mailbox early.
+ * Delete expired data. Dependent session_inboxes links and transfer-code
+ * tokens are removed BEFORE their parent sessions/inboxes, so the purge
+ * is safe even on databases that enforce foreign keys. Cutoffs are
+ * computed in SQL so the cron needs no clock logic of its own. Inboxes
+ * are removed only when they hold no messages, so an active address
+ * never loses its mailbox early.
  */
 export async function purgeExpired(db: D1Database, retentionDays: number): Promise<PurgeResult> {
   const days = Math.max(1, Math.floor(retentionDays) || 7);
@@ -29,6 +30,19 @@ export async function purgeExpired(db: D1Database, retentionDays: number): Promi
       `DELETE FROM session_inboxes
        WHERE session_id IN (SELECT id FROM sessions WHERE created_at < datetime('now', '-30 days'))
        OR inbox_address IN (
+         SELECT address FROM inboxes
+         WHERE created_at < datetime('now', '-' || ? || ' days')
+         AND NOT EXISTS (SELECT 1 FROM messages WHERE messages.inbox_address = inboxes.address)
+       )`
+    )
+    .bind(days)
+    .run();
+
+  // Transfer codes die with the inboxes they belong to
+  const tokens = await db
+    .prepare(
+      `DELETE FROM inbox_tokens
+       WHERE inbox_address IN (
          SELECT address FROM inboxes
          WHERE created_at < datetime('now', '-' || ? || ' days')
          AND NOT EXISTS (SELECT 1 FROM messages WHERE messages.inbox_address = inboxes.address)
@@ -59,6 +73,13 @@ export async function purgeExpired(db: D1Database, retentionDays: number): Promi
     )
     .run();
 
+  await db
+    .prepare(
+      `DELETE FROM inbox_tokens
+       WHERE inbox_address NOT IN (SELECT address FROM inboxes)`
+    )
+    .run();
+
   const rateHits = await db
     .prepare(`DELETE FROM rate_hits WHERE hit_at < datetime('now', '-1 day')`)
     .run();
@@ -68,5 +89,6 @@ export async function purgeExpired(db: D1Database, retentionDays: number): Promi
     inboxes: inboxes.meta.changes ?? 0,
     sessions: sessions.meta.changes ?? 0,
     rateHits: rateHits.meta.changes ?? 0,
+    tokens: tokens.meta.changes ?? 0,
   };
 }

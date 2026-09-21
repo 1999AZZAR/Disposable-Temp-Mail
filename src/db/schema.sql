@@ -41,3 +41,16 @@ CREATE TABLE IF NOT EXISTS rate_hits (
 );
 
 CREATE INDEX IF NOT EXISTS idx_rate_hits_key ON rate_hits(key, hit_at);
+
+-- Transfer codes: one unguessable claim token per inbox. Presenting the
+-- code on another device links the inbox to that device's session, so
+-- inboxes roam across devices with no account. Tokens die with the
+-- inbox in the retention purge (see cleanup.ts).
+CREATE TABLE IF NOT EXISTS inbox_tokens (
+  inbox_address TEXT PRIMARY KEY,
+  token TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (inbox_address) REFERENCES inboxes(address)
+);
+
+CREATE INDEX IF NOT EXISTS idx_inbox_tokens_token ON inbox_tokens(token);
