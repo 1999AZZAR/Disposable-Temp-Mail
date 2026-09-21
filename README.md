@@ -4,9 +4,33 @@ A **self-hosted disposable email** service that runs entirely on **Cloudflare Wo
 
 ---
 
+## Table of Contents
+
+- [How it works](#how-it-works)
+- [Prerequisites](#prerequisites)
+- [Setup Guide](#setup-guide)
+  - [Step 1 — Clone & install dependencies](#step-1--clone--install-dependencies)
+  - [Step 2 — Login to Cloudflare](#step-2--login-to-cloudflare)
+  - [Step 3 — Create your wrangler.toml](#step-3--create-your-wranglertoml)
+  - [Step 4 — Create the D1 database](#step-4--create-the-d1-database)
+  - [Step 5 — Apply the database schema](#step-5--apply-the-database-schema)
+  - [Step 6 — Deploy the Worker](#step-6--deploy-the-worker)
+  - [Step 7 — Setup DNS on Cloudflare](#step-7--setup-dns-on-cloudflare)
+  - [Step 8 — Test it](#step-8--test-it)
+- [Commands cheat sheet](#commands-cheat-sheet)
+- [Project structure](#project-structure)
+- [Tech stack](#tech-stack)
+- [Abuse controls & retention](#abuse-controls--retention)
+- [Tests](#tests)
+- [Troubleshooting](#troubleshooting)
+- [Documentation](#documentation)
+- [License](#license)
+
+---
+
 ## How it works
 
-![Edge Email Pipeline](./assets/disposable-temp-mail-illustrations/01-edge-email-pipeline.png)
+![Edge Email Pipeline](./docs/assets/disposable-temp-mail-illustrations/01-edge-email-pipeline.png)
 
 ```
 Sender → Cloudflare MX → Email Worker (email handler)
@@ -41,7 +65,9 @@ Before you start, you need:
 
 ---
 
-## Step 1 — Clone & install dependencies
+## Setup Guide
+
+### Step 1 — Clone & install dependencies
 
 ```bash
 git clone <your-repo-url>
@@ -51,7 +77,7 @@ npm install
 
 ---
 
-## Step 2 — Login to Cloudflare
+### Step 2 — Login to Cloudflare
 
 ```bash
 npx wrangler login
@@ -70,7 +96,7 @@ npx wrangler whoami
 
 ---
 
-## Step 3 — Create your wrangler.toml
+### Step 3 — Create your wrangler.toml
 
 Copy the example config and fill in your own values:
 
@@ -90,7 +116,7 @@ Then edit `wrangler.toml`:
 > `wrangler.toml` holds your private domains and database ID — it is
 > git-ignored. Only `wrangler.example.toml` (placeholders) is committed.
 
-## Step 4 — Create the D1 database
+### Step 4 — Create the D1 database
 
 ```bash
 npx wrangler d1 create disposable-temp-mail-db
@@ -111,7 +137,7 @@ Copy the `database_id` into your `wrangler.toml`.
 
 ---
 
-## Step 5 — Apply the database schema
+### Step 5 — Apply the database schema
 
 Push the schema to your **remote** D1 database on Cloudflare:
 
@@ -134,7 +160,7 @@ This creates six tables:
 
 ---
 
-## Step 6 — Deploy the Worker
+### Step 6 — Deploy the Worker
 
 ```bash
 npx wrangler deploy
@@ -154,16 +180,16 @@ Deployed disposable-temp-mail triggers
 
 ---
 
-## Step 7 — Setup DNS on Cloudflare
+### Step 7 — Setup DNS on Cloudflare
 
-### 7a. Web UI (automatic)
+#### 7a. Web UI (automatic)
 
 Cloudflare automatically creates the DNS record for your Worker's custom domain. If it doesn't:
 
 - Go to **Cloudflare Dashboard → Workers & Pages → disposable-temp-mail → Settings → Domains**
 - The custom domain `tmail.YOURDOMAIN.com` should already be listed
 
-### 7b. MX Records (automatic with Email Routing)
+#### 7b. MX Records (automatic with Email Routing)
 
 Email Routing should already be enabled on your domain. Verify:
 
@@ -182,7 +208,7 @@ Expected output:
 Catch-all rule: enabled, action: worker:disposable-temp-mail
 ```
 
-### 7c. SPF Record (optional but recommended)
+#### 7c. SPF Record (optional but recommended)
 
 If you don't already have an SPF record, add one so emails don't get flagged as spam:
 
@@ -192,7 +218,7 @@ If you don't already have an SPF record, add one so emails don't get flagged as 
 
 ---
 
-## Step 8 — Test it
+### Step 8 — Test it
 
 1. Open `https://tmail.YOURDOMAIN.com` in your browser
 2. Click **New** → **Create** to file a random address (or type a name first for a custom one)
@@ -237,6 +263,11 @@ disposable-temp-mail/
 ├── package.json
 ├── tsconfig.json
 ├── .gitignore
+├── docs/                      # Dedicated documentation & visual guides
+│   ├── API.md                 # Complete REST API reference
+│   ├── SECURITY.md            # Security policy and scope notes
+│   ├── CHANGELOG.md           # Project changelog
+│   └── assets/                # Blotcat architectural illustrations
 └── src/
     ├── index.ts               # Entry point: fetch() + email() + scheduled() handlers
     ├── cleanup.ts             # Daily retention purge (messages, inboxes, sessions)
@@ -273,7 +304,7 @@ disposable-temp-mail/
 
 ## Abuse controls & retention
 
-![Retention & Abuse Controls](./assets/disposable-temp-mail-illustrations/02-retention-and-abuse-gate.png)
+![Retention & Abuse Controls](./docs/assets/disposable-temp-mail-illustrations/02-retention-and-abuse-gate.png)
 
 - **Rate limits** (per hour, tunable in `wrangler.toml`): 20 inbox creations
   per session, 30 inbox creations per IP, 10 new sessions per IP, 30 transfer-code
@@ -346,6 +377,17 @@ This project uses **Wrangler v4**. If you're on v3:
 ```bash
 npm install --save-dev wrangler@4
 ```
+
+---
+
+## Documentation
+
+Comprehensive project documentation, security guides, and API contracts live in the [`docs/`](./docs/) directory:
+
+- [**REST API Reference**](./docs/API.md) — All endpoints (`/api/session`, `/api/inboxes`, `/api/messages`), authentication headers, rate limits, and cURL workflows.
+- [**Security Policy & Boundaries**](./docs/SECURITY.md) — Vulnerability reporting protocol and disposable threat model.
+- [**Changelog**](./docs/CHANGELOG.md) — Version history and release notes.
+- [**Architectural Illustrations**](./docs/assets/disposable-temp-mail-illustrations/) — Hand-drawn 16:9 Blotcat system guides.
 
 ---
 
