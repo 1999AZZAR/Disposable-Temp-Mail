@@ -145,7 +145,7 @@ api.post('/inboxes', async (c) => {
   if (c.env.TURNSTILE_SITE_KEY) {
     const token: string = (body.turnstileToken || '').trim();
     if (!token) return c.json({ error: 'Captcha verification required' }, 400);
-    const ok = await verifyTurnstileToken(token, c.env.TURNSTILE_SECRET_KEY, clientIp(c));
+    const ok = await verifyTurnstileToken(token, c.env.TURNSTILE_SECRET_KEY, c.env.WEB_HOST, clientIp(c));
     if (!ok) return c.json({ error: 'Captcha verification failed' }, 403);
   }
   const domains = getDomains(c.env);
