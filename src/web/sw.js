@@ -2,13 +2,14 @@
  * Cache-first for the app shell; API traffic always hits the network.
  * Version the cache name on shell changes so updates roll out cleanly. */
 
-const CACHE_NAME = "tmail-shell-v3";
+const CACHE_NAME = "tmail-shell-v5";
 const SHELL = [
   "/",
   "/index.html",
   "/styles.css",
   "/app.js",
   "/qrcodegen.js",
+  "/i18n.js",
   "/favicon.svg",
   "/icon-192.png",
   "/icon-512.png",
@@ -16,6 +17,9 @@ const SHELL = [
   "/docs.html",
   "/terms.html",
   "/privacy.html",
+  "/docs-id.html",
+  "/terms-id.html",
+  "/privacy-id.html",
 ];
 
 self.addEventListener("install", (event) => {

@@ -68,10 +68,71 @@ const ICONS = {
   alert: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
 };
 
-function setSessionBadge(mode, text) {
+/* ---------- i18n: English + Indonesian ---------- */
+
+const LANG_KEY = "tmail-lang";
+
+function currentLang() {
+  try {
+    const stored = localStorage.getItem(LANG_KEY);
+    if (stored === "id" || stored === "en") return stored;
+  } catch { /* private mode: fall through to English */ }
+  return "en";
+}
+
+let lang = currentLang();
+
+function t(key, vars) {
+  const dict = (window.TMAIL_I18N && window.TMAIL_I18N[lang]) || {};
+  const fallback = (window.TMAIL_I18N && window.TMAIL_I18N.en) || {};
+  let text = dict[key] !== undefined ? dict[key] : (fallback[key] !== undefined ? fallback[key] : key);
+  if (vars) for (const name of Object.keys(vars)) text = text.split(`{${name}}`).join(String(vars[name]));
+  return text;
+}
+
+function localeTag() { return lang === "id" ? "id-ID" : "en-US"; }
+
+let lastBadge = { mode: "", key: "session.connecting" };
+
+function applyI18n() {
+  document.documentElement.setAttribute("lang", lang);
+  document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.getAttribute("data-i18n")); });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => { el.setAttribute("placeholder", t(el.getAttribute("data-i18n-placeholder"))); });
+  document.querySelectorAll("[data-i18n-aria]").forEach((el) => { el.setAttribute("aria-label", t(el.getAttribute("data-i18n-aria"))); });
+  els.themeToggleLabel.textContent = t(document.documentElement.getAttribute("data-theme") === "dark" ? "theme.light" : "theme.dark");
+  const langLabel = $("langToggleLabel");
+  if (langLabel) langLabel.textContent = t("lang.toggle");
+  els.appSubtitle.textContent = t("subtitle");
+  const pageSuffix = lang === "id" ? "-id" : "";
+  for (const [key, page] of [["footer.guide", "docs"], ["footer.terms", "terms"], ["footer.privacy", "privacy"]]) {
+    const link = document.querySelector(`[data-i18n="${key}"]`);
+    if (link) link.setAttribute("href", `/${page}${pageSuffix}.html`);
+  }
+  setSessionBadge(lastBadge.mode, lastBadge.key);
+  fillRetentionSelect(els.retentionSelect, String(state.config.defaultRetentionDays));
+  renderInboxList();
+  renderTransferHint();
+  renderRetentionLine();
+  renderMessageCount();
+  renderMessages();
+}
+
+function setLang(next) {
+  lang = next === "id" ? "id" : "en";
+  try { localStorage.setItem(LANG_KEY, lang); } catch { /* private mode: language just won't persist */ }
+  applyI18n();
+}
+
+function renderMessageCount() {
+  const n = state.messages.length;
+  els.messageCount.textContent = t(n === 1 ? "msg.one" : "msg.many", { n });
+}
+
+function setSessionBadge(mode, key, vars) {
+  lastBadge = { mode, key };
   els.sessionBadge.classList.toggle("is-ready", mode === "ready");
   els.sessionBadge.classList.toggle("is-error", mode === "error");
-  els.sessionStatus.textContent = text;
+  els.sessionStatus.textContent = t(key, vars);
 }
 
 function showToast(text, variant) {
@@ -117,8 +178,8 @@ function lockReaderButtons(locked) {
 /* ---------- Retention (keep-for plans + renew) ---------- */
 
 function retentionLabel(days) {
-  if (days === null || days === undefined) return "Until I remove it";
-  return `${days} days`;
+  if (days === null || days === undefined) return t("retention.keep");
+  return t("retention.days", { n: days });
 }
 
 function fillRetentionSelect(select, current) {
@@ -126,13 +187,13 @@ function fillRetentionSelect(select, current) {
   for (const days of state.config.retentionOptions) {
     const option = document.createElement("option");
     option.value = String(days);
-    option.textContent = `${days} days`;
+    option.textContent = t("retention.days", { n: days });
     if (String(days) === String(current)) option.selected = true;
     select.appendChild(option);
   }
   const keep = document.createElement("option");
   keep.value = "keep";
-  keep.textContent = "Until I remove it";
+  keep.textContent = t("retention.keep");
   if (current === "keep" || current === null) keep.selected = true;
   select.appendChild(keep);
 }
@@ -155,11 +216,11 @@ function renderRetentionLine() {
   fillRetentionSelect(els.planSelect, inbox.retention_days === null ? "keep" : inbox.retention_days);
   const expiry = expiryDate(inbox);
   if (!expiry) {
-    els.retentionLine.textContent = "Keeps until you remove it. Mail older than 90 days still ages out.";
+    els.retentionLine.textContent = t("keep.line");
     return;
   }
-  const date = expiry.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-  els.retentionLine.textContent = `Keeps until ${date} · plan ${inbox.retention_days} days. Renew restarts the clock.`;
+  const date = expiry.toLocaleDateString(localeTag(), { month: "short", day: "numeric", year: "numeric" });
+  els.retentionLine.textContent = t("keep.until", { date, n: inbox.retention_days });
 }
 
 function updateInboxEntry(updated) {
@@ -175,11 +236,11 @@ async function renewSelected() {
     updateInboxEntry(response);
     renderRetentionLine();
     const expiry = expiryDate(response);
-    const until = expiry ? expiry.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "until you remove it";
-    showToast(`Clock restarted — kept ${until}.`, "success");
+    const until = expiry ? expiry.toLocaleDateString(localeTag(), { month: "short", day: "numeric", year: "numeric" }) : t("renew.until");
+    showToast(t("toast.renew", { until }), "success");
     flashButton(els.renewBtn, "ok");
   } catch (error) {
-    showToast(`Could not renew inbox: ${error.message || error}`, "error");
+    showToast(t("err.renew", { e: error.message || error }), "error");
     flashButton(els.renewBtn, "error");
   } finally {
     setBusy(els.renewBtn, false);
@@ -196,9 +257,9 @@ async function handlePlanChange() {
     });
     updateInboxEntry(response);
     renderRetentionLine();
-    showToast(`Plan set — ${retentionLabel(response.retention_days).toLowerCase()}.`, "success");
+    showToast(t("toast.plan", { plan: retentionLabel(response.retention_days).toLowerCase() }), "success");
   } catch (error) {
-    showToast(`Could not change plan: ${error.message || error}`, "error");
+    showToast(t("err.plan", { e: error.message || error }), "error");
     renderRetentionLine();
   }
 }
@@ -214,9 +275,13 @@ async function loadConfig() {
   };
   document.title = state.config.appName;
   els.appTitle.textContent = state.config.appName;
-  els.appSubtitle.textContent = `Anonymous disposable inboxes for the masses`;
-  els.localPartInput.placeholder = "Custom name — empty for random";
-
+  els.appSubtitle.textContent = t("subtitle");
+  const pageSuffix = lang === "id" ? "-id" : "";
+  for (const [key, page] of [["footer.guide", "docs"], ["footer.terms", "terms"], ["footer.privacy", "privacy"]]) {
+    const link = document.querySelector(`[data-i18n="${key}"]`);
+    if (link) link.setAttribute("href", `/${page}${pageSuffix}.html`);
+  }
+  
   els.domainSelect.innerHTML = "";
   for (const domain of state.config.mailDomains) {
     const option = document.createElement("option");
@@ -270,7 +335,7 @@ async function ensureSession() {
   const payload = await fetchJson("/api/session");
   state.sessionId = payload.sessionId;
   localStorage.setItem(SESSION_KEY, state.sessionId);
-  setSessionBadge("ready", "Anonymous session");
+  setSessionBadge("ready", "session.ready");
 }
 
 /* ---------- Inboxes ---------- */
@@ -281,7 +346,7 @@ function renderInboxList() {
   if (!state.inboxes.length) {
     const empty = document.createElement("li");
     empty.className = "inbox-empty";
-    empty.textContent = "No entries yet. File your first address above.";
+    empty.textContent = t("register.empty");
     els.inboxList.appendChild(empty);
     return;
   }
@@ -314,8 +379,8 @@ async function loadInboxes(selectedAddress) {
     state.selected = "";
     state.messages = [];
     state.openMessage = "";
-    els.currentInbox.textContent = "No inbox selected";
-    els.messageCount.textContent = "0 messages";
+    els.currentInbox.textContent = t("reader.none");
+    renderMessageCount();
     renderTransferHint();
     renderRetentionLine();
     lockReaderButtons(true);
@@ -356,15 +421,15 @@ function renderTransferHint() {
   if (!state.selected) return;
   const code = selectedTransferCode();
   if (!code) {
-    els.transferHint.textContent = "Transfer code unavailable for this entry.";
+    els.transferHint.textContent = t("transfer.na");
     return;
   }
-  els.transferHint.textContent = "Transfer code ";
+  els.transferHint.textContent = t("transfer.pre");
   const stamp = document.createElement("span");
   stamp.className = "transfer-code";
   stamp.textContent = code;
   els.transferHint.appendChild(stamp);
-  els.transferHint.append(" — enter it on another device, or scan its plate, to shelve this inbox there.");
+  els.transferHint.append(t("transfer.post"));
 }
 
 function claimUrlFor(code) {
@@ -395,7 +460,7 @@ function openQrDialog() {
     wrap.innerHTML = buildQrSvg(claimUrlFor(code));
     els.qrCode.append(wrap.firstChild);
   } else {
-    els.qrCode.textContent = "QR unavailable offline — use the code below.";
+    els.qrCode.textContent = t("qr.offline");
   }
   els.qrCodeText.textContent = code;
   if (typeof els.qrDialog.showModal === "function") {
@@ -418,13 +483,13 @@ async function copyTransferCode() {
     document.execCommand("copy");
     temp.remove();
   }
-  showToast("Transfer code copied to clipboard.", "success");
+  showToast(t("toast.codeCopied"), "success");
   flashButton(els.transferBtn, "ok");
 }
 
 async function claimInbox(rawCode) {
   const code = String(rawCode || "").trim();
-  if (!code) throw new Error("Enter a transfer code first.");
+  if (!code) throw new Error(t("err.claimEmpty"));
   const response = await fetchJson("/api/inboxes/claim", {
     method: "POST",
     body: JSON.stringify({ code }),
@@ -437,7 +502,7 @@ async function handleClaimSubmit(event) {
   event.preventDefault();
   const code = els.claimCodeInput.value.trim();
   if (!code) {
-    showToast("Enter a transfer code first.", "error");
+    showToast(t("err.claimEmpty"), "error");
     flashButton(els.claimBtn, "error");
     els.claimCodeInput.focus();
     return;
@@ -446,10 +511,10 @@ async function handleClaimSubmit(event) {
   try {
     const address = await claimInbox(code);
     els.claimCodeInput.value = "";
-    showToast(`Address ${address} is shelved here.`, "success");
+    showToast(t("toast.shelved", { a: address }), "success");
     flashButton(els.claimBtn, "ok");
   } catch (error) {
-    showToast(`Could not link inbox: ${error.message || error}`, "error");
+    showToast(t("err.claim", { e: error.message || error }), "error");
     flashButton(els.claimBtn, "error");
   } finally {
     setBusy(els.claimBtn, false);
@@ -463,7 +528,7 @@ function padNumber(n) {
 }
 
 function formatWhen(value) {
-  if (!value) return "Unknown";
+  if (!value) return t("unknown");
   const date = new Date(typeof value === "number" ? value * 1000 : value);
   if (Number.isNaN(date.getTime())) return "Unknown";
   return date.toLocaleString(undefined, {
@@ -490,16 +555,12 @@ function renderMessages() {
   els.messageList.innerHTML = "";
 
   if (!state.selected) {
-    renderEmptyState(ICONS.inbox, "No inbox selected", "File an address to start receiving mail.");
+    renderEmptyState(ICONS.inbox, t("empty.nobox"), t("empty.noboxBody"));
     return;
   }
 
   if (!state.messages.length) {
-    renderEmptyState(
-      ICONS.mail,
-      "Ledger is empty",
-      `Mail sent to ${state.selected} will be filed here. Press Refresh to check again.`
-    );
+    renderEmptyState(ICONS.mail, t("empty.ledger"), t("empty.ledgerBody", { a: state.selected }));
     return;
   }
 
@@ -519,11 +580,11 @@ function renderMessages() {
 
     const from = document.createElement("span");
     from.className = "message-from";
-    from.textContent = message.from_address || "Unknown sender";
+    from.textContent = message.from_address || t("unknownSender");
 
     const subject = document.createElement("h3");
     subject.className = "message-subject";
-    subject.textContent = message.subject || "(no subject)";
+    subject.textContent = message.subject || t("noSubject");
 
     const when = document.createElement("span");
     when.className = "message-when";
@@ -549,7 +610,7 @@ function renderMessages() {
         const strike = document.createElement("button");
         strike.type = "button";
         strike.className = "btn btn-danger-ghost";
-        strike.textContent = "Strike from ledger";
+        strike.textContent = t("strike.btn");
         strike.addEventListener("click", (event) => {
           event.stopPropagation();
           strikeMessage(message.id, strike);
@@ -576,7 +637,7 @@ async function loadMessages() {
   spinner.className = "spinner";
   spinner.setAttribute("aria-hidden", "true");
   const label = document.createElement("span");
-  label.textContent = "Loading messages…";
+  label.textContent = t("loading");
   loading.append(spinner, label);
   els.messageList.appendChild(loading);
   setBusy(els.refreshBtn, true);
@@ -585,10 +646,10 @@ async function loadMessages() {
     const messages = await fetchJson(`/api/inboxes/${encodeURIComponent(address)}/messages`);
     state.messages = Array.isArray(messages) ? messages : [];
     els.currentInbox.textContent = address;
-    els.messageCount.textContent = `${state.messages.length} ${state.messages.length === 1 ? "message" : "messages"}`;
+    renderMessageCount();
     renderMessages();
   } catch (error) {
-    renderEmptyState(ICONS.alert, "Could not load messages", String(error.message || error));
+    renderEmptyState(ICONS.alert, t("err.messages"), String(error.message || error));
   } finally {
     state.loadingMessages = false;
     els.messageList.removeAttribute("aria-busy");
@@ -602,7 +663,7 @@ async function copySelected() {
   if (!state.selected) return;
   try {
     await navigator.clipboard.writeText(state.selected);
-    showToast("Address copied to clipboard.", "success");
+    showToast(t("toast.addrCopied"), "success");
     flashButton(els.copyBtn, "ok");
   } catch {
     const temp = document.createElement("textarea");
@@ -611,22 +672,22 @@ async function copySelected() {
     temp.select();
     document.execCommand("copy");
     temp.remove();
-    showToast("Address copied to clipboard.", "success");
+    showToast(t("toast.addrCopied"), "success");
     flashButton(els.copyBtn, "ok");
   }
 }
 
 async function strikeMessage(id, button) {
-  if (!window.confirm("Strike this entry from the ledger? This permanently deletes the message.")) return;
+  if (!window.confirm(t("confirm.strike"))) return;
   setBusy(button, true);
   try {
     await fetchJson(`/api/messages/${encodeURIComponent(id)}`, { method: "DELETE" });
     state.messages = state.messages.filter((m) => m.id !== id);
     if (state.openMessage === id) state.openMessage = "";
     renderMessages();
-    showToast("Entry struck from the ledger.", "success");
+    showToast(t("toast.struck"), "success");
   } catch (error) {
-    showToast(`Could not delete message: ${error.message || error}`, "error");
+    showToast(t("err.strike", { e: error.message || error }), "error");
     flashButton(button, "error");
   } finally {
     setBusy(button, false);
@@ -638,10 +699,10 @@ async function removeSelected() {
   setBusy(els.deleteBtn, true);
   try {
     await fetchJson(`/api/inboxes/${encodeURIComponent(state.selected)}`, { method: "DELETE" });
-    showToast("Inbox removed from this session.", "success");
+    showToast(t("toast.removed"), "success");
     await loadInboxes();
   } catch (error) {
-    showToast(`Could not remove inbox: ${error.message || error}`, "error");
+    showToast(t("err.remove", { e: error.message || error }), "error");
     flashButton(els.deleteBtn, "error");
   } finally {
     setBusy(els.deleteBtn, false);
@@ -662,15 +723,15 @@ async function createInbox(localPart) {
   resetTurnstile();
   els.localPartInput.value = "";
   await loadInboxes(response.address);
-  const code = response.transferCode ? ` Transfer code ${response.transferCode}.` : "";
-  showToast(`Address ${response.address} is filed (kept ${retentionLabel(response.retention_days).toLowerCase()}).${code}`, "success");
+  const code = response.transferCode ? t("toast.codePart", { code: response.transferCode }) : "";
+  showToast(t("toast.filed", { a: response.address, plan: retentionLabel(response.retention_days).toLowerCase(), code }), "success");
 }
 
 async function handleComposerSubmit(event) {
   event.preventDefault();
   const localPart = els.localPartInput.value.trim().toLowerCase();
   if (!validateLocalPart(localPart)) {
-    showToast("Use letters, numbers, dots, underscores, and hyphens only.", "error");
+    showToast(t("err.local"), "error");
     flashButton(els.createBtn, "error");
     els.localPartInput.focus();
     return;
@@ -681,7 +742,7 @@ async function handleComposerSubmit(event) {
     flashButton(els.createBtn, "ok");
   } catch (error) {
     resetTurnstile();
-    showToast(`Could not create address: ${error.message || error}`, "error");
+    showToast(t("err.create", { e: error.message || error }), "error");
     flashButton(els.createBtn, "error");
   } finally {
     setBusy(els.createBtn, false);
@@ -702,12 +763,15 @@ function setTheme(dark) {
     /* private mode: theme just won't persist */
   }
   els.themeToggle.setAttribute("aria-pressed", dark ? "true" : "false");
-  els.themeToggleLabel.textContent = dark ? "Light plate" : "Dark plate";
+  els.themeToggleLabel.textContent = t(dark ? "theme.light" : "theme.dark");
 }
 
 els.themeToggle.addEventListener("click", () => {
   setTheme(document.documentElement.getAttribute("data-theme") !== "dark");
 });
+
+const langToggle = $("langToggle");
+if (langToggle) langToggle.addEventListener("click", () => setLang(lang === "id" ? "en" : "id"));
 setTheme(document.documentElement.getAttribute("data-theme") === "dark");
 
 /* ---------- Events ---------- */
@@ -724,11 +788,10 @@ els.refreshBtn.addEventListener("click", () => {
 });
 els.deleteBtn.addEventListener("click", () => {
   if (!state.selected) return;
-  els.deleteDialogText.textContent =
-    `Remove ${state.selected} from this session? This only unlinks the address from your browser.`;
+  els.deleteDialogText.textContent = t("remove.confirm", { a: state.selected });
   if (typeof els.deleteDialog.showModal === "function") {
     els.deleteDialog.showModal();
-  } else if (window.confirm(`Remove ${state.selected} from this session?`)) {
+  } else if (window.confirm(t("dialog.removeTitle"))) {
     removeSelected();
   }
 });
@@ -768,8 +831,10 @@ window.setInterval(() => {
 
 (async function init() {
   try {
-    setSessionBadge("", "Connecting…");
+    setSessionBadge("", "session.connecting");
+    applyI18n();
     await loadConfig();
+    applyI18n();
     await ensureSession();
     await loadInboxes();
     const params = new URLSearchParams(window.location.search);
@@ -778,17 +843,17 @@ window.setInterval(() => {
       window.history.replaceState({}, "", window.location.pathname);
       try {
         const address = await claimInbox(deepCode);
-        showToast(`Address ${address} is shelved here.`, "success");
+        showToast(t("toast.shelved", { a: address }), "success");
       } catch (error) {
-        showToast(`Could not link inbox: ${error.message || error}`, "error");
+        showToast(t("err.claim", { e: error.message || error }), "error");
       }
     }
   } catch (error) {
     console.error(error);
-    setSessionBadge("error", "Connection failed");
+    setSessionBadge("error", "session.error");
     lockReaderButtons(true);
-    renderEmptyState(ICONS.alert, "Connection error", String(error.message || error));
-    showToast(`Connection failed: ${error.message || error}`, "error");
+    renderEmptyState(ICONS.alert, t("session.error"), String(error.message || error));
+    showToast(t("err.conn", { e: error.message || error }), "error");
   }
 })();
 

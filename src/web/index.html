@@ -24,7 +24,7 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <a class="skip-link" href="#reader">Skip to messages</a>
+    <a class="skip-link" href="#reader" data-i18n="skip">Skip to messages</a>
 
     <svg class="defs" aria-hidden="true" focusable="false">
       <defs>
@@ -37,12 +37,13 @@
     <div class="page">
       <header class="masthead">
         <div class="masthead-top">
-          <p class="micro">Archive — Tmail · Ed. 01</p>
+          <p class="micro" data-i18n="archive">Archive — Tmail · Ed. 01</p>
           <div class="masthead-actions">
             <p class="session-badge" id="sessionBadge">
               <span class="session-dot" aria-hidden="true"></span>
               <span id="sessionStatus">Connecting&hellip;</span>
             </p>
+            <button type="button" class="btn btn-ghost lang-toggle" id="langToggle"><span id="langToggleLabel">ID</span></button>
             <button type="button" class="btn btn-ghost theme-toggle" id="themeToggle" aria-pressed="false">
               <span id="themeToggleLabel">Dark plate</span>
             </button>
@@ -59,10 +60,10 @@
           <section class="plate" aria-labelledby="composerHeading">
             <div class="plate-head">
               <p class="micro">01</p>
-              <h2 id="composerHeading">New entry</h2>
+              <h2 id="composerHeading" data-i18n="composer.new">New entry</h2>
             </div>
             <form class="composer" id="composerForm" autocomplete="off">
-              <label class="field-label" for="localPartInput">Local part</label>
+              <label class="field-label" for="localPartInput" data-i18n="composer.local">Local part</label>
               <input
                 id="localPartInput"
                 name="localPart"
@@ -70,25 +71,25 @@
                 inputmode="email"
                 maxlength="64"
                 pattern="[A-Za-z0-9._-]+"
-                placeholder="Custom name — empty for random"
+                placeholder="Custom name — empty for random" data-i18n-placeholder="composer.localPh"
                
               />
-              <label class="field-label" for="domainSelect">Domain</label>
+              <label class="field-label" for="domainSelect" data-i18n="composer.domain">Domain</label>
               <select id="domainSelect" name="domain"></select>
-              <label class="field-label" for="retentionSelect">Keep for</label>
+              <label class="field-label" for="retentionSelect" data-i18n="composer.keep">Keep for</label>
               <select id="retentionSelect" name="retentionDays"></select>
               <div class="turnstile-slot" id="turnstileSlot" hidden>
                 <div id="turnstileWidget"></div>
               </div>
               <div class="composer-actions">
-                <button type="submit" class="btn btn-primary" id="createBtn">
+                <button type="submit" class="btn btn-primary" id="createBtn" data-i18n-aria="composer.create">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                  <span>Create</span>
+                  <span data-i18n="composer.create">Create</span>
                 </button>
               </div>
             </form>
             <form class="composer" id="claimForm" autocomplete="off">
-              <label class="field-label" for="claimCodeInput">Transfer code</label>
+              <label class="field-label" for="claimCodeInput" data-i18n="claim.label">Transfer code</label>
               <input
                 id="claimCodeInput"
                 name="claimCode"
@@ -98,11 +99,11 @@
                 placeholder="XXXX-XXXX-XXXX-XXXX"
                 aria-describedby="claimHint"
               />
-              <p class="field-hint" id="claimHint">Filed on another device? Enter its code to shelve it here.</p>
+              <p class="field-hint" id="claimHint" data-i18n="claim.hint">Filed on another device? Enter its code to shelve it here.</p>
               <div class="composer-actions">
                 <button type="submit" class="btn btn-secondary" id="claimBtn">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                  <span>Link</span>
+                  <span data-i18n="claim.link">Link</span>
                 </button>
               </div>
             </form>
@@ -111,57 +112,57 @@
           <section class="plate" aria-labelledby="railHeading">
             <div class="plate-head">
               <p class="micro">02</p>
-              <h2 id="railHeading">Register</h2>
+              <h2 id="railHeading" data-i18n="register.title">Register</h2>
               <span class="count-pill" id="inboxCount" aria-live="polite">0</span>
             </div>
-            <ol class="inbox-list" id="inboxList" aria-label="Your inboxes" aria-describedby="inboxListHint"></ol>
-            <p class="field-hint" id="inboxListHint">Kept until removed or its plan runs out. Each entry carries a transfer code for your other devices.</p>
+            <ol class="inbox-list" id="inboxList" data-i18n-aria="register.aria" aria-label="Your inboxes" aria-describedby="inboxListHint"></ol>
+            <p class="field-hint" id="inboxListHint" data-i18n="register.hint">Kept until removed or its plan runs out. Each entry carries a transfer code for your other devices.</p>
           </section>
         </aside>
 
         <section class="reader plate" id="reader" aria-labelledby="currentInbox">
           <div class="plate-head">
             <p class="micro">03</p>
-            <h2>Reading room</h2>
+            <h2 data-i18n="reader.title">Reading room</h2>
           </div>
           <div class="reader-head">
             <div class="reader-title">
-              <p class="micro">Currently reading</p>
+              <p class="micro" data-i18n="reader.current">Currently reading</p>
               <p class="reader-address" id="currentInbox">No inbox selected</p>
               <p class="message-count" id="messageCount" aria-live="polite">0 messages</p>
               <p class="field-hint transfer-hint" id="transferHint"></p>
               <div class="retention-row">
                 <p class="field-hint retention-hint" id="retentionLine"></p>
-                <label class="micro" for="planSelect">Plan</label>
-                <select id="planSelect" class="plan-select" aria-label="Retention plan"></select>
+                <label class="micro" for="planSelect" data-i18n="plan.label">Plan</label>
+                <select id="planSelect" class="plan-select" data-i18n-aria="plan.aria" aria-label="Retention plan"></select>
               </div>
             </div>
-            <div class="reader-actions" role="toolbar" aria-label="Inbox actions">
+            <div class="reader-actions" role="toolbar" data-i18n-aria="reader.actions" aria-label="Inbox actions">
               <button type="button" class="btn btn-ghost" id="copyBtn" disabled>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                <span>Copy</span>
+                <span data-i18n="action.copy">Copy</span>
               </button>
               <button type="button" class="btn btn-ghost" id="transferBtn" disabled>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                <span>Transfer</span>
+                <span data-i18n="action.transfer">Transfer</span>
               </button>
               <button type="button" class="btn btn-ghost" id="refreshBtn" disabled>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
-                <span>Refresh</span>
+                <span data-i18n="action.refresh">Refresh</span>
               </button>
               <button type="button" class="btn btn-ghost" id="renewBtn" disabled>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                <span>Renew</span>
+                <span data-i18n="action.renew">Renew</span>
               </button>
               <button type="button" class="btn btn-danger-ghost" id="deleteBtn" disabled>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                <span>Remove</span>
+                <span data-i18n="action.remove">Remove</span>
               </button>
             </div>
           </div>
 
           <div class="ledger-head" aria-hidden="true">
-            <span>№</span><span>From</span><span>Subject</span><span>Received</span>
+            <span data-i18n="ledger.no">№</span><span data-i18n="ledger.from">From</span><span data-i18n="ledger.subject">Subject</span><span data-i18n="ledger.received">Received</span>
           </div>
           <div class="message-list" id="messageList" aria-live="polite"></div>
         </section>
@@ -169,40 +170,40 @@
 
       <footer class="colophon">
         <nav class="colophon-nav" aria-label="Service pages">
-          <a href="/docs.html">Guide</a>
+          <a href="/docs.html" data-i18n="footer.guide">Guide</a>
           <span aria-hidden="true">·</span>
-          <a href="/terms.html">Terms of Use</a>
+          <a href="/terms.html" data-i18n="footer.terms">Terms of Use</a>
           <span aria-hidden="true">·</span>
-          <a href="/privacy.html">Privacy Policy</a>
+          <a href="/privacy.html" data-i18n="footer.privacy">Privacy Policy</a>
 
           <span aria-hidden="true">·</span>
-          <a href="https://github.com/1999AZZAR/Disposable-Temp-Mail" rel="noopener">Source</a>
+          <a href="https://github.com/1999AZZAR/Disposable-Temp-Mail" rel="noopener" data-i18n="footer.source">Source</a>
         </nav>
-        <p class="micro">Disposable Temp Mail · Press N for new entry, R to refresh</p>
+        <p class="micro" data-i18n="footer.hint">Disposable Temp Mail · Press N for new entry, R to refresh</p>
       </footer>
     </div>
 
     <dialog class="confirm-dialog" id="deleteDialog" aria-labelledby="deleteDialogTitle">
-      <p class="micro">Deaccession</p>
-      <h2 id="deleteDialogTitle">Remove inbox from this session?</h2>
-      <p id="deleteDialogText">This only unlinks the address from your browser. Received messages stay in the database.</p>
+      <p class="micro" data-i18n="dialog.deaccession">Deaccession</p>
+      <h2 id="deleteDialogTitle" data-i18n="dialog.removeTitle">Remove inbox from this session?</h2>
+      <p id="deleteDialogText" data-i18n="dialog.removeText">This only unlinks the address from your browser. Received messages stay in the database.</p>
       <form method="dialog" class="confirm-actions">
-        <button type="submit" class="btn btn-secondary" value="cancel">Keep</button>
-        <button type="submit" class="btn btn-danger" id="confirmDeleteBtn" value="delete">Remove</button>
+        <button type="submit" class="btn btn-secondary" value="cancel" data-i18n="dialog.keep">Keep</button>
+        <button type="submit" class="btn btn-danger" id="confirmDeleteBtn" value="delete" data-i18n="dialog.remove">Remove</button>
       </form>
     </dialog>
 
     <dialog class="confirm-dialog" id="qrDialog" aria-labelledby="qrDialogTitle">
-      <p class="micro">Transfer plate</p>
-      <h2 id="qrDialogTitle">Shelve this inbox elsewhere</h2>
+      <p class="micro" data-i18n="qr.micro">Transfer plate</p>
+      <h2 id="qrDialogTitle" data-i18n="qr.title">Shelve this inbox elsewhere</h2>
       <figure class="qr-figure" id="qrFigure">
-        <div id="qrCode" role="img" aria-label="QR code linking this inbox"></div>
+        <div id="qrCode" role="img" data-i18n-aria="qr.img" aria-label="QR code linking this inbox"></div>
       </figure>
-      <p class="micro">Scan with another device — the inbox shelves itself there. Anyone holding this plate can read its mail; keep it close.</p>
+      <p class="micro" data-i18n="qr.caution">Scan with another device — the inbox shelves itself there. Anyone holding this plate can read its mail; keep it close.</p>
       <p class="transfer-code" id="qrCodeText"></p>
       <form method="dialog" class="confirm-actions">
-        <button type="button" class="btn btn-ghost" id="qrCopyBtn">Copy code</button>
-        <button type="submit" class="btn btn-secondary" value="close">Close</button>
+        <button type="button" class="btn btn-ghost" id="qrCopyBtn" data-i18n="qr.copy">Copy code</button>
+        <button type="submit" class="btn btn-secondary" value="close" data-i18n="qr.close">Close</button>
       </form>
     </dialog>
 
@@ -210,6 +211,7 @@
 
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
     <script src="/qrcodegen.js" defer></script>
+    <script src="/i18n.js" defer></script>
     <script src="/app.js" defer></script>
   </body>
 </html>
