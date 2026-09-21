@@ -2,18 +2,25 @@ name = "disposable-temp-mail"
 main = "src/index.ts"
 compatibility_date = "2025-06-01"
 
-# Production on tmail.hela.my.id (custom domain only)
+# Copy this file to wrangler.toml and fill in your own values:
+#   cp wrangler.example.toml wrangler.toml
+# wrangler.toml is git-ignored — never commit your real domains/IDs.
+
+# Set workers_dev to false when using your own domain
 workers_dev = false
 
 # ---- D1 Database ----
+# Step 1: run `npx wrangler d1 create disposable-temp-mail-db`
+# Step 2: paste the database_id below
 [[d1_databases]]
 binding = "DB"
 database_name = "disposable-temp-mail-db"
-database_id = "7e84d13a-bfcd-46ec-9490-0581605530ce"
+database_id = ""
 
 # ---- Custom domain route ----
+# CHANGE THIS to your own subdomain (e.g. tmail.example.com)
 [[routes]]
-pattern = "tmail.hela.my.id"
+pattern = "tmail.YOURDOMAIN.com"
 custom_domain = true
 
 # ---- Scheduled cleanup (daily retention purge) ----
@@ -21,17 +28,18 @@ custom_domain = true
 crons = ["0 3 * * *"]
 
 # ---- Environment variables ----
+# CHANGE THESE to your own domain
 [vars]
 APP_NAME = "Disposable Temp Mail"
-MAIL_DOMAIN = "tmail.hela.my.id"
-WEB_HOST = "tmail.hela.my.id"
+MAIL_DOMAIN = "YOURDOMAIN.com"
+WEB_HOST = "tmail.YOURDOMAIN.com"
 # Data retention for messages/inboxes (days); sessions expire after 30 days
 RETENTION_DAYS = "7"
 # Abuse controls (allowed hits per hour)
 RATE_LIMIT_INBOXES_PER_HOUR = "20"
 RATE_LIMIT_SESSIONS_PER_HOUR = "10"
 
-# ---- Static assets (web frontend) ----
+# ---- Static assets (web frontend, don't change) ----
 [assets]
 directory = "./src/web"
 

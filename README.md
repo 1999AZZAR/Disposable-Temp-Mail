@@ -65,52 +65,25 @@ npx wrangler whoami
 
 ---
 
-## Step 3 — Configure wrangler.toml
+## Step 3 — Create your wrangler.toml
 
-Open `wrangler.toml` and replace the placeholder values with your own:
+Copy the example config and fill in your own values:
 
-```toml
-name = "disposable-temp-mail"
-main = "src/index.ts"
-compatibility_date = "2025-06-01"
-
-# Set to false when using your own domain (skip workers.dev)
-workers_dev = false
-
-# D1 Database — leave database_id empty for now, we'll fill it in Step 4
-[[d1_databases]]
-binding = "DB"
-database_name = "disposable-temp-mail-db"
-database_id = ""
-
-# Email Worker
-[email]
-action = "process"
-
-# Custom domain — CHANGE THIS to your own domain
-[[routes]]
-pattern = "tmail.YOURDOMAIN.com"
-custom_domain = true
-
-# Environment — CHANGE THESE
-[vars]
-APP_NAME = "Disposable Temp Mail"
-MAIL_DOMAIN = "YOURDOMAIN.com"
-WEB_HOST = "tmail.YOURDOMAIN.com"
-
-# Static assets (don't change)
-[assets]
-directory = "./src/web"
-
-[observability]
-enabled = true
+```bash
+cp wrangler.example.toml wrangler.toml
 ```
 
-**All three `vars` + the routes `pattern` must be updated:**
-- `YOURDOMAIN.com` → your actual domain (e.g. `example.com`)
-- `tmail.YOURDOMAIN.com` → the subdomain for the web UI
+Then edit `wrangler.toml`:
 
----
+| Field | Change to |
+|---|---|
+| `database_id` | Leave empty for now — you'll fill it in Step 4 |
+| routes `pattern` | Your web UI subdomain (e.g. `tmail.example.com`) |
+| `MAIL_DOMAIN` | Your receiving domain (e.g. `example.com`) |
+| `WEB_HOST` | Same as the routes pattern (e.g. `tmail.example.com`) |
+
+> `wrangler.toml` holds your private domains and database ID — it is
+> git-ignored. Only `wrangler.example.toml` (placeholders) is committed.
 
 ## Step 4 — Create the D1 database
 
@@ -141,11 +114,12 @@ Push the schema to your **remote** D1 database on Cloudflare:
 npx wrangler d1 execute disposable-temp-mail-db --remote --file=src/db/schema.sql
 ```
 
-This creates five tables:
-- `inboxes` — email addresses
+This creates six tables:
+- `inboxes` — email addresses (with per-inbox `retention_days`)
 - `messages` — received emails
 - `sessions` — browser session tokens
 - `session_inboxes` — which inboxes belong to which session
+- `inbox_tokens` — cross-device transfer codes
 - `rate_hits` — rate-limit counters (pruned daily)
 
 > **Existing deployments:** re-run the command after pulling updates — the
@@ -253,7 +227,7 @@ Then send a test email — you'll see the Worker processing it in real time.
 
 ```
 disposable-temp-mail/
-├── wrangler.toml              # Worker config, D1 binding, routes, env vars
+├── wrangler.example.toml      # Template config (copy to wrangler.toml, git-ignored)
 ├── package.json
 ├── tsconfig.json
 ├── .gitignore
