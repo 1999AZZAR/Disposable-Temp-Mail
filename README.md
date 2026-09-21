@@ -22,6 +22,8 @@ Sender → Cloudflare MX → Email Worker (email handler)
 - **Zero cost** — fits within Cloudflare's free tier
 - **Installable PWA** — add to home screen, offline app shell
 
+▶ **Demo video:** https://youtu.be/ixEKTiah4Bk
+
 ---
 
 ## Prerequisites
