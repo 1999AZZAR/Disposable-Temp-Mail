@@ -48,7 +48,13 @@ Sender → Cloudflare MX → Email Worker (email handler)
 - **Zero cost** — fits within Cloudflare's free tier
 - **Installable PWA** — add to home screen, offline app shell
 
-[![Watch the demo](https://img.youtube.com/vi/ixEKTiah4Bk/0.jpg)](https://youtu.be/ixEKTiah4Bk)
+<p align="center">
+  <a href="https://youtu.be/ixEKTiah4Bk" target="_blank" rel="noopener noreferrer">
+    <img src="./docs/assets/demo-video-preview.png" alt="Disposable Temp Mail Live Demo Video" width="760">
+  </a>
+  <br>
+  <sub><b>▶️ Watch the live walkthrough & demo on YouTube</b> (click preview to play)</sub>
+</p>
 
 ---
 
