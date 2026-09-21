@@ -6,6 +6,8 @@ A **self-hosted disposable email** service that runs entirely on **Cloudflare Wo
 
 ## How it works
 
+![Edge Email Pipeline](./assets/disposable-temp-mail-illustrations/01-edge-email-pipeline.png)
+
 ```
 Sender → Cloudflare MX → Email Worker (email handler)
                                   │
@@ -270,6 +272,8 @@ disposable-temp-mail/
 ---
 
 ## Abuse controls & retention
+
+![Retention & Abuse Controls](./assets/disposable-temp-mail-illustrations/02-retention-and-abuse-gate.png)
 
 - **Rate limits** (per hour, tunable in `wrangler.toml`): 20 inbox creations
   per session, 30 inbox creations per IP, 10 new sessions per IP, 30 transfer-code

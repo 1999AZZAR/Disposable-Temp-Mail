@@ -474,6 +474,8 @@ All error responses follow this format:
 
 ## Session isolation
 
+![Session Isolation & Cross-Device Claim](./assets/disposable-temp-mail-illustrations/03-session-and-transfer-code.png)
+
 Disposable Temp Mail uses per-browser anonymous sessions:
 
 | Scenario | Behavior |

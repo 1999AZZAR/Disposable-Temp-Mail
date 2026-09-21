@@ -11,6 +11,8 @@ initial response within 7 days.
 
 ## Scope Notes
 
+![Disposable Security Boundary](./assets/disposable-temp-mail-illustrations/04-disposable-security-boundary.png)
+
 - Inboxes are **disposable by design**: anyone holding an address can read its
   mail. Do not use this service for sensitive accounts.
 - Session gating is a convenience boundary, not an access control: treat all
