@@ -11,6 +11,7 @@ import {
   DEFAULT_RETENTION_DAYS,
   getSessionInboxes,
   getMessages,
+  deleteMessage,
   ensureSession,
   linkInboxToSession,
   unlinkInboxFromSession,
@@ -274,6 +275,17 @@ api.get('/inboxes/:address/messages', async (c) => {
 
   const messages = await getMessages(c.env.DB, address);
   return c.json(messages);
+});
+
+// ---- DELETE /api/messages/:id ----
+api.delete('/messages/:id', async (c) => {
+  const sid = requireSession(c);
+  if (!sid) return c.json({ error: 'Missing x-session-id' }, 400);
+
+  const id = decodeURIComponent(c.req.param('id'));
+  const deleted = await deleteMessage(c.env.DB, sid, id);
+  if (!deleted) return c.json({ error: 'Message not found' }, 404);
+  return c.json({ ok: true });
 });
 
 export default api;

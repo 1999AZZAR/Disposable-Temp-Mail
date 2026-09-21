@@ -569,6 +569,9 @@ body {
   margin-left: 0;
 }
 
+.message-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.message-actions { display: flex; justify-content: flex-end; margin-top: var(--space-3); }
+
 .empty-state { padding: var(--space-12) var(--space-4); text-align: left; }
 .empty-state h3 {
   margin: var(--space-3) 0 var(--space-1);

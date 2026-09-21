@@ -336,6 +336,44 @@ curl -s -X DELETE "https://YOUR_DOMAIN/api/inboxes/test123%40example.com" \
 
 ---
 
+### DELETE `/api/messages/:id`
+
+Permanently deletes a single message from the database. Only works for messages in an inbox linked to your session — other sessions' messages return `404`, so one session can never strike another's entries.
+
+**Headers**
+
+| Header | Required | Description |
+|---|---|---|
+| `x-session-id` | **Yes** | Session ID |
+
+**Path Parameters**
+
+| Param | Description |
+|---|---|
+| `id` | Message ID, URI-encoded |
+
+**Response** `200 OK`
+
+```json
+{ "ok": true }
+```
+
+**Errors**
+
+| Status | Message | Meaning |
+|---|---|---|
+| `400` | `Missing x-session-id` | No session header |
+| `404` | `Message not found` | Unknown ID, or message belongs to another session's inbox |
+
+**Usage**
+
+```bash
+curl -s -X DELETE "https://YOUR_DOMAIN/api/messages/01JABC123XYZ" \
+  -H "x-session-id: 550e8400-e29b-41d4-a716-446655440000"
+```
+
+---
+
 ### GET `/api/inboxes/:address/messages`
 
 Fetches all messages for a given inbox. The inbox must be linked to your session.

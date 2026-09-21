@@ -490,7 +490,24 @@ function renderMessages() {
     if (state.openMessage === id) {
       const body = document.createElement("div");
       body.className = "message-body";
-      body.textContent = message.body || "";
+      const text = document.createElement("p");
+      text.className = "message-text";
+      text.textContent = message.body || "";
+      body.appendChild(text);
+      if (message.id) {
+        const actions = document.createElement("div");
+        actions.className = "message-actions";
+        const strike = document.createElement("button");
+        strike.type = "button";
+        strike.className = "btn btn-danger-ghost";
+        strike.textContent = "Strike from ledger";
+        strike.addEventListener("click", (event) => {
+          event.stopPropagation();
+          strikeMessage(message.id, strike);
+        });
+        actions.appendChild(strike);
+        body.appendChild(actions);
+      }
       row.appendChild(body);
     }
 
@@ -547,6 +564,23 @@ async function copySelected() {
     temp.remove();
     showToast("Address copied to clipboard.", "success");
     flashButton(els.copyBtn, "ok");
+  }
+}
+
+async function strikeMessage(id, button) {
+  if (!window.confirm("Strike this entry from the ledger? This permanently deletes the message.")) return;
+  setBusy(button, true);
+  try {
+    await fetchJson(`/api/messages/${encodeURIComponent(id)}`, { method: "DELETE" });
+    state.messages = state.messages.filter((m) => m.id !== id);
+    if (state.openMessage === id) state.openMessage = "";
+    renderMessages();
+    showToast("Entry struck from the ledger.", "success");
+  } catch (error) {
+    showToast(`Could not delete message: ${error.message || error}`, "error");
+    flashButton(button, "error");
+  } finally {
+    setBusy(button, false);
   }
 }
 

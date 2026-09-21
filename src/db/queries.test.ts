@@ -10,6 +10,7 @@ import {
   getSessionInboxes,
   getMessages,
   insertMessage,
+  deleteMessage,
   ensureSession,
   linkInboxToSession,
   unlinkInboxFromSession,
@@ -103,6 +104,29 @@ describe('message queries', () => {
     const msgs = await getMessages(db, 'a@example.com');
     assert.equal(msgs.length, 2);
     assert.ok(msgs.every((m) => m.inbox_address === 'a@example.com'));
+  });
+
+  it('deletes only messages in the caller session', async () => {
+    const db = createTestDb();
+    await ensureSession(db, 's1');
+    await ensureSession(db, 's2');
+    await createInbox(db, 'a@example.com');
+    await createInbox(db, 'b@example.com');
+    await linkInboxToSession(db, 's1', 'a@example.com');
+    await linkInboxToSession(db, 's2', 'b@example.com');
+    const msg = (id: string, inbox: string) => insertMessage(db, {
+      id, inbox_address: inbox,
+      from_address: 'x@y.z', subject: 's', body: 'b',
+    });
+    await msg('m1', 'a@example.com');
+    await msg('m2', 'b@example.com');
+
+    assert.equal(await deleteMessage(db, 's1', 'm1'), 1);
+    assert.equal((await getMessages(db, 'a@example.com')).length, 0);
+    assert.equal(await deleteMessage(db, 's1', 'm1'), 0);
+    assert.equal(await deleteMessage(db, 's1', 'm2'), 0);
+    assert.equal((await getMessages(db, 'b@example.com')).length, 1);
+    assert.equal(await deleteMessage(db, 'nope', 'm2'), 0);
   });
 });
 

@@ -194,6 +194,7 @@ If you don't already have an SPF record, add one so emails don't get flagged as 
 2. Click **New** → **Create** to file a random address (or type a name first for a custom one)
 3. Send an email from Gmail/any provider to that address
 4. Press **R** (or the refresh control) — the email appears in the register
+5. Expand the entry to read it; **Strike from ledger** permanently deletes a single message
 
 ---
 
@@ -286,6 +287,8 @@ disposable-temp-mail/
   also offers Renew to restart the clock). A daily cron (`0 3 * * *`) deletes
   empty inboxes past their plan (messages follow their inbox's plan, capped at
   90 days), sessions older than 30 days, and stale rate-limit rows.
+  Individual messages can also be struck from the ledger anytime — permanent
+  and immediate, no waiting for the purge.
   `RETENTION_DAYS` in `[vars]` is only a fallback for orphaned rows.
 
 ---

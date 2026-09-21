@@ -158,6 +158,21 @@ export async function insertMessage(
     .run();
 }
 
+export async function deleteMessage(
+  db: D1Database,
+  sessionId: string,
+  messageId: string
+): Promise<number> {
+  const result = await db
+    .prepare(
+      `DELETE FROM messages WHERE id = ?
+       AND inbox_address IN (SELECT inbox_address FROM session_inboxes WHERE session_id = ?)`
+    )
+    .bind(messageId, sessionId)
+    .run();
+  return result.meta.changes ?? 0;
+}
+
 // ---- Sessions ----
 
 export async function ensureSession(db: D1Database, sessionId: string): Promise<void> {
