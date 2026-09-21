@@ -25,8 +25,7 @@ const els = {
   planSelect: $("planSelect"),
   retentionLine: $("retentionLine"),
   renewBtn: $("renewBtn"),
-  createCustomBtn: $("createCustomBtn"),
-  createRandomBtn: $("createRandomBtn"),
+  createBtn: $("createBtn"),
   claimForm: $("claimForm"),
   claimCodeInput: $("claimCodeInput"),
   claimBtn: $("claimBtn"),
@@ -211,7 +210,7 @@ async function loadConfig() {
   };
   document.title = state.config.appName;
   els.appTitle.textContent = state.config.appName;
-  els.appSubtitle.textContent = `Anonymous disposable inboxes for ${state.config.mailDomain}`;
+  els.appSubtitle.textContent = `Anonymous disposable inboxes for the masses`;
   els.localPartInput.placeholder = "Custom name — empty for random";
 
   els.domainSelect.innerHTML = "";
@@ -589,36 +588,23 @@ async function handleComposerSubmit(event) {
   const localPart = els.localPartInput.value.trim().toLowerCase();
   if (!validateLocalPart(localPart)) {
     showToast("Use letters, numbers, dots, underscores, and hyphens only.", "error");
-    flashButton(els.createCustomBtn, "error");
+    flashButton(els.createBtn, "error");
     els.localPartInput.focus();
     return;
   }
-  setBusy(els.createCustomBtn, true);
+  setBusy(els.createBtn, true);
   try {
     await createInbox(localPart);
-    flashButton(els.createCustomBtn, "ok");
+    flashButton(els.createBtn, "ok");
   } catch (error) {
     resetTurnstile();
     showToast(`Could not create address: ${error.message || error}`, "error");
-    flashButton(els.createCustomBtn, "error");
+    flashButton(els.createBtn, "error");
   } finally {
-    setBusy(els.createCustomBtn, false);
+    setBusy(els.createBtn, false);
   }
 }
 
-async function handleRandomCreate() {
-  setBusy(els.createRandomBtn, true);
-  try {
-    await createInbox("");
-    flashButton(els.createRandomBtn, "ok");
-  } catch (error) {
-    resetTurnstile();
-    showToast(`Could not create address: ${error.message || error}`, "error");
-    flashButton(els.createRandomBtn, "error");
-  } finally {
-    setBusy(els.createRandomBtn, false);
-  }
-}
 
 /* ---------- Theme: light linen default, dark plate opt-in ---------- */
 
@@ -644,7 +630,6 @@ setTheme(document.documentElement.getAttribute("data-theme") === "dark");
 /* ---------- Events ---------- */
 
 els.composerForm.addEventListener("submit", handleComposerSubmit);
-els.createRandomBtn.addEventListener("click", handleRandomCreate);
 els.claimForm.addEventListener("submit", handleClaimSubmit);
 els.copyBtn.addEventListener("click", copySelected);
 els.copyCodeBtn.addEventListener("click", copyTransferCode);
