@@ -21,6 +21,7 @@ import {
 import { generateUniqueAddress } from '../utils/random-address.ts';
 import { checkRateLimit, rateLimitHeaders } from '../utils/rate-limit.ts';
 import { normalizeTransferCode } from '../utils/claim-token.ts';
+import { verifyTurnstileToken } from '../utils/turnstile.ts';
 
 export interface ApiEnv {
   DB: D1Database;
@@ -29,8 +30,11 @@ export interface ApiEnv {
   WEB_HOST: string;
   RETENTION_DAYS?: string;
   RATE_LIMIT_INBOXES_PER_HOUR?: string;
+  RATE_LIMIT_INBOXES_PER_IP_PER_HOUR?: string;
   RATE_LIMIT_SESSIONS_PER_HOUR?: string;
   RATE_LIMIT_CLAIMS_PER_HOUR?: string;
+  TURNSTILE_SITE_KEY?: string;
+  TURNSTILE_SECRET_KEY?: string;
 }
 
 function numVar(value: string | undefined, fallback: number): number {
@@ -90,6 +94,7 @@ api.get('/config', (c) => {
     webHost: c.env.WEB_HOST || 'tmail.example.com',
     retentionOptions: [...RETENTION_OPTIONS],
     defaultRetentionDays: DEFAULT_RETENTION_DAYS,
+    turnstileSiteKey: c.env.TURNSTILE_SITE_KEY || '',
   });
 });
 
@@ -129,7 +134,19 @@ api.post('/inboxes', async (c) => {
   if (!rl.allowed) return tooMany(c, inboxLimit, rl.retryAfter);
   for (const [k, v] of Object.entries(rateLimitHeaders(rl, inboxLimit))) c.header(k, v);
 
+  // IP-level cap: sessions are cheap to rotate, so bound total creates per IP too.
+  const ipInboxLimit = numVar(c.env.RATE_LIMIT_INBOXES_PER_IP_PER_HOUR, 30);
+  const ipRl = await checkRateLimit(c.env.DB, `inbox-ip:${clientIp(c)}`, ipInboxLimit, 3600);
+  if (!ipRl.allowed) return tooMany(c, ipInboxLimit, ipRl.retryAfter);
+
   const body = await c.req.json().catch(() => ({}));
+  // Bot gate: Turnstile token required whenever a site key is configured.
+  if (c.env.TURNSTILE_SITE_KEY) {
+    const token: string = (body.turnstileToken || '').trim();
+    if (!token) return c.json({ error: 'Captcha verification required' }, 400);
+    const ok = await verifyTurnstileToken(token, c.env.TURNSTILE_SECRET_KEY, clientIp(c));
+    if (!ok) return c.json({ error: 'Captcha verification failed' }, 403);
+  }
   const domains = getDomains(c.env);
   const requestedDomain: string = (body.domain || '').trim().toLowerCase();
   const domain = requestedDomain && domains.includes(requestedDomain)

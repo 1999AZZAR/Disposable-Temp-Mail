@@ -37,7 +37,12 @@ WEB_HOST = "tmail.YOURDOMAIN.com"
 RETENTION_DAYS = "7"
 # Abuse controls (allowed hits per hour)
 RATE_LIMIT_INBOXES_PER_HOUR = "20"
+RATE_LIMIT_INBOXES_PER_IP_PER_HOUR = "30"
 RATE_LIMIT_SESSIONS_PER_HOUR = "10"
+# Turnstile bot gate on inbox creation (Cloudflare dashboard → Turnstile).
+# Leave empty to disable (local dev). Secret goes in wrangler.toml, never here:
+#   npx wrangler secret put TURNSTILE_SECRET_KEY
+TURNSTILE_SITE_KEY = ""
 
 # ---- Static assets (web frontend, don't change) ----
 [assets]

@@ -693,3 +693,8 @@ body {
     letter-spacing: 0.1em;
   }
 }
+
+/* Turnstile bot gate slot (hidden until a site key is configured). */
+.turnstile-slot {
+  margin: 0 0 var(--space-3);
+}

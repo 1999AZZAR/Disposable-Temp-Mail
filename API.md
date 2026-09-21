@@ -139,6 +139,7 @@ Creates a new inbox (or claims an existing one) and links it to your session.
 | `retentionDays` | No | Keep-for plan: `7`, `30`, `90`, or `"keep"` (until you remove it). Defaults to `7`. Invalid values are rejected with `400`. |
 
 | `domain` | No | Domain override. Must be one of the allowed domains from `GET /api/config`'s `mailDomains`. Defaults to the first configured domain. Invalid domains are rejected with `400`. |
+| `turnstileToken` | Conditionally | Turnstile client token. **Required** when the server has `TURNSTILE_SITE_KEY` configured (the web UI attaches it automatically). Missing → `400`, failed verification → `403`. |
 
 **Examples**
 
@@ -185,6 +186,9 @@ Creates a new inbox (or claims an existing one) and links it to your session.
 |---|---|---|
 | `400` | `Missing x-session-id` | No session header provided |
 | `400` | `Invalid domain: ...` | Requested domain is not in the allowed list. Check `GET /config`'s `mailDomains`. |
+| `400` | `Captcha verification required` | Turnstile is enabled but no `turnstileToken` was sent |
+| `403` | `Captcha verification failed` | Turnstile token rejected by Cloudflare |
+| `429` | `Rate limit exceeded...` | Per-session (default 20/hr) or per-IP (default 30/hr) inbox cap hit. `Retry-After` header included |
 
 **Notes**
 - If the address already exists, it simply links the existing inbox to your session

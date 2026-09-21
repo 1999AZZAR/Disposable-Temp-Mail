@@ -229,6 +229,38 @@ async function loadConfig() {
     : state.config.retentionOptions;
   state.config.defaultRetentionDays = config.defaultRetentionDays || state.config.defaultRetentionDays;
   fillRetentionSelect(els.retentionSelect, String(state.config.defaultRetentionDays));
+  initTurnstile(config.turnstileSiteKey || "");
+}
+
+/* ---------- Turnstile bot gate (inbox creation) ---------- */
+
+const turnstileState = { widgetId: null, token: "" };
+
+function initTurnstile(siteKey, attempt) {
+  if (!siteKey) return;
+  if (typeof window.turnstile === "undefined") {
+    // turnstile api.js loads async — retry briefly, then give up silently
+    if ((attempt || 0) < 20) setTimeout(() => initTurnstile(siteKey, (attempt || 0) + 1), 250);
+    return;
+  }
+  try {
+    document.getElementById("turnstileSlot").hidden = false;
+    turnstileState.widgetId = window.turnstile.render("#turnstileWidget", {
+      sitekey: siteKey,
+      callback: (token) => { turnstileState.token = token; },
+      'expired-callback': () => { turnstileState.token = ""; },
+      'error-callback': () => { turnstileState.token = ""; },
+    });
+  } catch {
+    /* widget unavailable: server still enforces when keys are set */
+  }
+}
+
+function resetTurnstile() {
+  turnstileState.token = "";
+  if (turnstileState.widgetId !== null && typeof window.turnstile !== "undefined") {
+    try { window.turnstile.reset(turnstileState.widgetId); } catch { /* noop */ }
+  }
 }
 
 async function ensureSession() {
@@ -543,8 +575,9 @@ async function createInbox(localPart) {
   const retentionChoice = els.retentionSelect.value === "keep" ? "keep" : Number(els.retentionSelect.value);
   const response = await fetchJson("/api/inboxes", {
     method: "POST",
-    body: JSON.stringify({ localPart, domain: els.domainSelect.value || undefined, retentionDays: retentionChoice }),
+    body: JSON.stringify({ localPart, domain: els.domainSelect.value || undefined, retentionDays: retentionChoice, turnstileToken: turnstileState.token || undefined }),
   });
+  resetTurnstile();
   els.localPartInput.value = "";
   await loadInboxes(response.address);
   const code = response.transferCode ? ` Transfer code ${response.transferCode}.` : "";
@@ -565,6 +598,7 @@ async function handleComposerSubmit(event) {
     await createInbox(localPart);
     flashButton(els.createCustomBtn, "ok");
   } catch (error) {
+    resetTurnstile();
     showToast(`Could not create address: ${error.message || error}`, "error");
     flashButton(els.createCustomBtn, "error");
   } finally {
@@ -578,6 +612,7 @@ async function handleRandomCreate() {
     await createInbox("");
     flashButton(els.createRandomBtn, "ok");
   } catch (error) {
+    resetTurnstile();
     showToast(`Could not create address: ${error.message || error}`, "error");
     flashButton(els.createRandomBtn, "error");
   } finally {
