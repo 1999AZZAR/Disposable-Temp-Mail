@@ -2,7 +2,8 @@
 
 /* Disposable Temp Mail — inbox client (vanilla JS, no dependencies).
  * API contract: GET /api/config, GET /api/session, GET+POST /api/inboxes,
- * POST /api/inboxes/claim, DELETE /api/inboxes/:address,
+ * POST /api/inboxes/claim, POST /api/inboxes/:address/renew,
+ * PATCH /api/inboxes/:address/retention, DELETE /api/inboxes/:address,
  * GET /api/inboxes/:address/messages.
  * Session is carried in the x-session-id header and localStorage.
  * Transfer codes link an inbox filed on another device to this session.
@@ -20,6 +21,10 @@ const els = {
   composerForm: $("composerForm"),
   localPartInput: $("localPartInput"),
   domainSelect: $("domainSelect"),
+  retentionSelect: $("retentionSelect"),
+  planSelect: $("planSelect"),
+  retentionLine: $("retentionLine"),
+  renewBtn: $("renewBtn"),
   createCustomBtn: $("createCustomBtn"),
   createRandomBtn: $("createRandomBtn"),
   claimForm: $("claimForm"),
@@ -45,7 +50,7 @@ const SESSION_KEY = "disposable_temp_mail_session_id";
 const REFRESH_INTERVAL_MS = 30000;
 
 const state = {
-  config: { appName: "Disposable Temp Mail", mailDomain: "example.com", mailDomains: ["example.com"] },
+  config: { appName: "Disposable Temp Mail", mailDomain: "example.com", mailDomains: ["example.com"], retentionOptions: [7, 30, 90], defaultRetentionDays: 7 },
   sessionId: localStorage.getItem(SESSION_KEY) || "",
   inboxes: [],
   selected: "",
@@ -99,9 +104,99 @@ function setBusy(button, busy) {
 }
 
 function lockReaderButtons(locked) {
-  for (const button of [els.copyBtn, els.copyCodeBtn, els.refreshBtn, els.deleteBtn]) {
+  for (const button of [els.copyBtn, els.copyCodeBtn, els.refreshBtn, els.renewBtn, els.deleteBtn]) {
     button.dataset.locked = locked ? "true" : "false";
     button.disabled = locked;
+  }
+  els.planSelect.disabled = locked;
+}
+
+/* ---------- Retention (keep-for plans + renew) ---------- */
+
+function retentionLabel(days) {
+  if (days === null || days === undefined) return "Until I remove it";
+  return `${days} days`;
+}
+
+function fillRetentionSelect(select, current) {
+  select.innerHTML = "";
+  for (const days of state.config.retentionOptions) {
+    const option = document.createElement("option");
+    option.value = String(days);
+    option.textContent = `${days} days`;
+    if (String(days) === String(current)) option.selected = true;
+    select.appendChild(option);
+  }
+  const keep = document.createElement("option");
+  keep.value = "keep";
+  keep.textContent = "Until I remove it";
+  if (current === "keep" || current === null) keep.selected = true;
+  select.appendChild(keep);
+}
+
+function selectedInboxEntry() {
+  return state.inboxes.find((entry) => entry.address === state.selected);
+}
+
+function expiryDate(inbox) {
+  if (inbox.retention_days === null || inbox.retention_days === undefined) return null;
+  const created = new Date(String(inbox.created_at).replace(" ", "T") + "Z");
+  if (Number.isNaN(created.getTime())) return null;
+  return new Date(created.getTime() + inbox.retention_days * 86400000);
+}
+
+function renderRetentionLine() {
+  els.retentionLine.textContent = "";
+  const inbox = selectedInboxEntry();
+  if (!inbox) return;
+  fillRetentionSelect(els.planSelect, inbox.retention_days === null ? "keep" : inbox.retention_days);
+  const expiry = expiryDate(inbox);
+  if (!expiry) {
+    els.retentionLine.textContent = "Keeps until you remove it. Mail older than 90 days still ages out.";
+    return;
+  }
+  const date = expiry.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  els.retentionLine.textContent = `Keeps until ${date} · plan ${inbox.retention_days} days. Renew restarts the clock.`;
+}
+
+function updateInboxEntry(updated) {
+  const index = state.inboxes.findIndex((entry) => entry.address === updated.address);
+  if (index >= 0) state.inboxes[index] = { ...state.inboxes[index], ...updated };
+}
+
+async function renewSelected() {
+  if (!state.selected) return;
+  setBusy(els.renewBtn, true);
+  try {
+    const response = await fetchJson(`/api/inboxes/${encodeURIComponent(state.selected)}/renew`, { method: "POST" });
+    updateInboxEntry(response);
+    renderRetentionLine();
+    const expiry = expiryDate(response);
+    const until = expiry ? expiry.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "until you remove it";
+    showToast(`Clock restarted — kept ${until}.`, "success");
+    flashButton(els.renewBtn, "ok");
+  } catch (error) {
+    showToast(`Could not renew inbox: ${error.message || error}`, "error");
+    flashButton(els.renewBtn, "error");
+  } finally {
+    setBusy(els.renewBtn, false);
+  }
+}
+
+async function handlePlanChange() {
+  if (!state.selected) return;
+  const value = els.planSelect.value;
+  try {
+    const response = await fetchJson(`/api/inboxes/${encodeURIComponent(state.selected)}/retention`, {
+      method: "PATCH",
+      body: JSON.stringify({ retentionDays: value === "keep" ? "keep" : Number(value) }),
+    });
+    updateInboxEntry(response);
+    renderRetentionLine();
+    showToast(`Plan set — ${retentionLabel(response.retention_days).toLowerCase()}.`, "success");
+  } catch (error) {
+    showToast(`Could not change plan: ${error.message || error}`, "error");
+    renderRetentionLine();
   }
 }
 
@@ -128,6 +223,12 @@ async function loadConfig() {
   }
   els.domainSelect.style.display = state.config.mailDomains.length <= 1 ? "none" : "";
   els.domainSelect.previousElementSibling.style.display = state.config.mailDomains.length <= 1 ? "none" : "";
+
+  state.config.retentionOptions = Array.isArray(config.retentionOptions) && config.retentionOptions.length
+    ? config.retentionOptions
+    : state.config.retentionOptions;
+  state.config.defaultRetentionDays = config.defaultRetentionDays || state.config.defaultRetentionDays;
+  fillRetentionSelect(els.retentionSelect, String(state.config.defaultRetentionDays));
 }
 
 async function ensureSession() {
@@ -181,6 +282,7 @@ async function loadInboxes(selectedAddress) {
     els.currentInbox.textContent = "No inbox selected";
     els.messageCount.textContent = "0 messages";
     renderTransferHint();
+    renderRetentionLine();
     lockReaderButtons(true);
     renderInboxList();
     renderMessages();
@@ -193,6 +295,7 @@ async function loadInboxes(selectedAddress) {
   lockReaderButtons(false);
   renderInboxList();
   renderTransferHint();
+  renderRetentionLine();
   await loadMessages();
 }
 
@@ -202,6 +305,7 @@ async function selectInbox(address) {
   state.openMessage = "";
   renderInboxList();
   renderTransferHint();
+  renderRetentionLine();
   await loadMessages();
 }
 
@@ -436,14 +540,15 @@ function validateLocalPart(value) {
 }
 
 async function createInbox(localPart) {
+  const retentionChoice = els.retentionSelect.value === "keep" ? "keep" : Number(els.retentionSelect.value);
   const response = await fetchJson("/api/inboxes", {
     method: "POST",
-    body: JSON.stringify({ localPart, domain: els.domainSelect.value || undefined }),
+    body: JSON.stringify({ localPart, domain: els.domainSelect.value || undefined, retentionDays: retentionChoice }),
   });
   els.localPartInput.value = "";
   await loadInboxes(response.address);
   const code = response.transferCode ? ` Transfer code ${response.transferCode}.` : "";
-  showToast(`Address ${response.address} is filed.${code}`, "success");
+  showToast(`Address ${response.address} is filed (kept ${retentionLabel(response.retention_days).toLowerCase()}).${code}`, "success");
 }
 
 async function handleComposerSubmit(event) {
@@ -508,6 +613,8 @@ els.createRandomBtn.addEventListener("click", handleRandomCreate);
 els.claimForm.addEventListener("submit", handleClaimSubmit);
 els.copyBtn.addEventListener("click", copySelected);
 els.copyCodeBtn.addEventListener("click", copyTransferCode);
+els.renewBtn.addEventListener("click", renewSelected);
+els.planSelect.addEventListener("change", handlePlanChange);
 els.refreshBtn.addEventListener("click", () => {
   if (!state.loadingMessages) loadMessages();
 });

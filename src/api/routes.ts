@@ -4,6 +4,11 @@ import {
   getInbox,
   createInbox,
   inboxExists,
+  renewInbox,
+  setInboxRetention,
+  parseRetentionDays,
+  RETENTION_OPTIONS,
+  DEFAULT_RETENTION_DAYS,
   getSessionInboxes,
   getMessages,
   ensureSession,
@@ -65,6 +70,14 @@ function requireSession(c: any): string {
   return sid;
 }
 
+/** Load the inbox with its transfer code, or 404. */
+async function inboxWithCode(db: D1Database, address: string) {
+  const inbox = await getInbox(db, address);
+  if (!inbox) return null;
+  const transferCode = await getOrCreateTransferCode(db, address);
+  return { ...inbox, transferCode };
+}
+
 const api = new Hono<{ Bindings: ApiEnv }>();
 
 // ---- GET /api/config ----
@@ -75,6 +88,8 @@ api.get('/config', (c) => {
     mailDomain: domains[0] || 'example.com',
     mailDomains: domains,
     webHost: c.env.WEB_HOST || 'tmail.example.com',
+    retentionOptions: [...RETENTION_OPTIONS],
+    defaultRetentionDays: DEFAULT_RETENTION_DAYS,
   });
 });
 
@@ -126,6 +141,11 @@ api.post('/inboxes', async (c) => {
     return c.json({ error: `Invalid domain: ${requestedDomain}. Allowed: ${domains.join(', ')}` }, 400);
   }
 
+  const retention = parseRetentionDays(body.retentionDays);
+  if (retention === undefined) {
+    return c.json({ error: `Invalid retentionDays. Allowed: ${RETENTION_OPTIONS.join(', ')} or "keep".` }, 400);
+  }
+
   const requested: string = (body.localPart || '').trim().toLowerCase();
 
   let address: string;
@@ -139,7 +159,7 @@ api.post('/inboxes', async (c) => {
   }
 
   // Ensure inbox record exists
-  await createInbox(c.env.DB, address);
+  await createInbox(c.env.DB, address, retention);
 
   // Link to session
   await linkInboxToSession(c.env.DB, sid, address);
@@ -171,6 +191,46 @@ api.post('/inboxes/claim', async (c) => {
   const transferCode = await getOrCreateTransferCode(c.env.DB, address);
   const inbox = await getInbox(c.env.DB, address);
   return c.json({ ...inbox!, transferCode });
+});
+
+// ---- POST /api/inboxes/:address/renew ----
+// Restart the inbox's retention clock (created_at = now).
+api.post('/inboxes/:address/renew', async (c) => {
+  const sid = requireSession(c);
+  if (!sid) return c.json({ error: 'Missing x-session-id' }, 400);
+
+  const address = decodeURIComponent(c.req.param('address'));
+  if (!(await isInboxInSession(c.env.DB, sid, address))) {
+    return c.json({ error: 'Inbox not in this session' }, 403);
+  }
+
+  await renewInbox(c.env.DB, address);
+  const inbox = await inboxWithCode(c.env.DB, address);
+  if (!inbox) return c.json({ error: 'Inbox not found' }, 404);
+  return c.json(inbox);
+});
+
+// ---- PATCH /api/inboxes/:address/retention ----
+// Change the inbox's retention plan going forward.
+api.patch('/inboxes/:address/retention', async (c) => {
+  const sid = requireSession(c);
+  if (!sid) return c.json({ error: 'Missing x-session-id' }, 400);
+
+  const address = decodeURIComponent(c.req.param('address'));
+  if (!(await isInboxInSession(c.env.DB, sid, address))) {
+    return c.json({ error: 'Inbox not in this session' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const retention = parseRetentionDays(body.retentionDays);
+  if (retention === undefined) {
+    return c.json({ error: `Invalid retentionDays. Allowed: ${RETENTION_OPTIONS.join(', ')} or "keep".` }, 400);
+  }
+
+  await setInboxRetention(c.env.DB, address, retention);
+  const inbox = await inboxWithCode(c.env.DB, address);
+  if (!inbox) return c.json({ error: 'Inbox not found' }, 404);
+  return c.json(inbox);
 });
 
 // ---- DELETE /api/inboxes/:address ----

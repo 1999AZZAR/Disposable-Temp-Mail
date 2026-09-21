@@ -13,6 +13,8 @@ function seed(db: D1Database) {
   return {
     inbox: (addr: string, created: string) =>
       exec(`INSERT INTO inboxes (address, created_at) VALUES (?, ?)`, addr, created),
+    inboxR: (addr: string, created: string, retention: number | null) =>
+      exec(`INSERT INTO inboxes (address, created_at, retention_days) VALUES (?, ?, ?)`, addr, created, retention),
     message: (id: string, addr: string, received: string) =>
       exec(
         `INSERT INTO messages (id, inbox_address, from_address, subject, body, received_at)
@@ -84,5 +86,42 @@ describe('purgeExpired', () => {
     assert.equal(r.tokens, 1);
     assert.equal(await getAddressByTransferCode(db, deadCode), null);
     assert.equal(await getAddressByTransferCode(db, liveCode), 'kept@example.com');
+  });
+});
+
+describe('per-inbox retention', () => {
+  const ago = (days: number) =>
+    new Date(Date.now() - days * 86400000).toISOString().slice(0, 19).replace('T', ' ');
+
+  it('purges by each inbox plan; keep-forever survives', async () => {
+    const db = createTestDb();
+    const s = seed(db);
+    await s.inboxR('week@example.com', ago(10), 7);
+    await s.inboxR('month@example.com', ago(30), 90);
+    await s.inboxR('keep@example.com', ago(100), null);
+
+    const r = await purgeExpired(db, 7);
+    assert.equal(r.inboxes, 1);
+    assert.equal(await getInbox(db, 'week@example.com'), null);
+    assert.notEqual(await getInbox(db, 'month@example.com'), null);
+    assert.notEqual(await getInbox(db, 'keep@example.com'), null);
+  });
+
+  it('messages follow the parent plan, keep-forever capped at 90 days', async () => {
+    const db = createTestDb();
+    const s = seed(db);
+    await s.inboxR('week@example.com', NOW, 7);
+    await s.inboxR('quarter@example.com', NOW, 90);
+    await s.inboxR('keep@example.com', NOW, null);
+    await s.message('m-week-old', 'week@example.com', ago(20));
+    await s.message('m-quarter-old', 'quarter@example.com', ago(20));
+    await s.message('m-keep-old', 'keep@example.com', ago(100));
+    await s.message('m-keep-fresh', 'keep@example.com', ago(30));
+
+    const r = await purgeExpired(db, 7);
+    assert.equal(r.messages, 2);
+    assert.deepEqual((await getMessages(db, 'week@example.com')).map((m) => m.id), []);
+    assert.deepEqual((await getMessages(db, 'quarter@example.com')).map((m) => m.id), ['m-quarter-old']);
+    assert.deepEqual((await getMessages(db, 'keep@example.com')).map((m) => m.id), ['m-keep-fresh']);
   });
 });

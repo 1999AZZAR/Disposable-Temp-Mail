@@ -4,6 +4,7 @@ import { generateTransferCode } from '../utils/claim-token.ts';
 export interface Inbox {
   address: string;
   created_at: string;
+  retention_days: number | null;
   transferCode?: string;
 }
 
@@ -21,19 +22,66 @@ export interface Session {
   created_at: string;
 }
 
+// ---- Retention ----
+
+/** Capped choices offered for per-inbox retention (days). */
+export const RETENTION_OPTIONS = [7, 30, 90] as const;
+
+/** Server default when the client picks nothing. */
+export const DEFAULT_RETENTION_DAYS = 7;
+
+/**
+ * Validate a client-supplied retention choice. Returns the day count,
+ * null for keep-until-removed, or undefined when the value is invalid.
+ */
+export function parseRetentionDays(value: unknown): number | null | undefined {
+  if (value === undefined || value === null || value === '') return DEFAULT_RETENTION_DAYS;
+  if (value === 'keep' || value === 'forever' || value === 'until-removed') return null;
+  const n = typeof value === 'number' ? value : parseInt(String(value), 10);
+  if ((RETENTION_OPTIONS as readonly number[]).includes(n)) return n;
+  return undefined;
+}
+
 // ---- Inboxes ----
 
 export async function getInbox(db: D1Database, address: string): Promise<Inbox | null> {
   return db.prepare('SELECT * FROM inboxes WHERE address = ?').bind(address).first<Inbox>();
 }
 
-export async function createInbox(db: D1Database, address: string): Promise<void> {
-  await db.prepare('INSERT OR IGNORE INTO inboxes (address) VALUES (?)').bind(address).run();
+export async function createInbox(
+  db: D1Database,
+  address: string,
+  retentionDays: number | null = DEFAULT_RETENTION_DAYS
+): Promise<void> {
+  await db
+    .prepare('INSERT OR IGNORE INTO inboxes (address, retention_days) VALUES (?, ?)')
+    .bind(address, retentionDays)
+    .run();
 }
 
 export async function inboxExists(db: D1Database, address: string): Promise<boolean> {
   const row = await db.prepare('SELECT 1 FROM inboxes WHERE address = ? LIMIT 1').bind(address).first();
   return !!row;
+}
+
+/** Restart an inbox's retention clock (created_at = now). */
+export async function renewInbox(db: D1Database, address: string): Promise<void> {
+  await db
+    .prepare(`UPDATE inboxes SET created_at = datetime('now') WHERE address = ?`)
+    .bind(address)
+    .run();
+}
+
+/** Change an inbox's retention plan going forward. */
+export async function setInboxRetention(
+  db: D1Database,
+  address: string,
+  retentionDays: number | null
+): Promise<void> {
+  await db
+    .prepare('UPDATE inboxes SET retention_days = ? WHERE address = ?')
+    .bind(retentionDays, address)
+    .run();
 }
 
 export async function getSessionInboxes(db: D1Database, sessionId: string): Promise<Inbox[]> {

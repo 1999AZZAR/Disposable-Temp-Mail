@@ -31,7 +31,9 @@ Returns the public app configuration.
   "appName": "Disposable Temp Mail",
   "mailDomain": "example.com",
   "mailDomains": ["example.com", "another-domain.my.id"],
-  "webHost": "tmail.example.com"
+  "webHost": "tmail.example.com",
+  "retentionOptions": [7, 30, 90],
+  "defaultRetentionDays": 7
 }
 ```
 
@@ -41,6 +43,8 @@ Returns the public app configuration.
 | `mailDomain` | string | Default mail domain (first in the list, for backward compat) |
 | `mailDomains` | string[] | All available mail domains |
 | `webHost` | string | Web frontend hostname |
+| `retentionOptions` | number[] | Keep-for choices in days (`7`, `30`, `90`); `"keep"` (until removed) is always allowed too |
+| `defaultRetentionDays` | number | Plan used when the client sends no `retentionDays` |
 
 ---
 
@@ -92,6 +96,7 @@ Lists all inboxes linked to your session.
   {
     "address": "kopihujan23@example.com",
     "created_at": "2026-06-26 07:48:19",
+    "retention_days": 7,
     "transferCode": "7KQ2-9MXD-4PWA-8ZTH"
   }
 ]
@@ -131,6 +136,8 @@ Creates a new inbox (or claims an existing one) and links it to your session.
 | Field | Required | Description |
 |---|---|---|
 | `localPart` | No | Custom username (e.g. `"myname"`). Omit for a random address. |
+| `retentionDays` | No | Keep-for plan: `7`, `30`, `90`, or `"keep"` (until you remove it). Defaults to `7`. Invalid values are rejected with `400`. |
+
 | `domain` | No | Domain override. Must be one of the allowed domains from `GET /api/config`'s `mailDomains`. Defaults to the first configured domain. Invalid domains are rejected with `400`. |
 
 **Examples**
@@ -152,6 +159,10 @@ Creates a new inbox (or claims an existing one) and links it to your session.
 { "domain": "another-domain.my.id" }
 // → melatijaya87@another-domain.my.id
 
+// 30-day plan, or keep until removed
+{ "retentionDays": 30 }
+{ "retentionDays": "keep" }
+
 // Invalid domain → 400
 { "domain": "evil.com" }
 // → { "error": "Invalid domain: evil.com. Allowed: example.com, another-domain.my.id" }
@@ -163,6 +174,7 @@ Creates a new inbox (or claims an existing one) and links it to your session.
 {
   "address": "langitbiru23@example.com",
   "created_at": "2026-06-26 07:48:19",
+  "retention_days": 7,
   "transferCode": "7KQ2-9MXD-4PWA-8ZTH"
 }
 ```
@@ -222,6 +234,7 @@ code. The code is shown in the reading room under the selected inbox
 {
   "address": "langitbiru23@example.com",
   "created_at": "2026-06-26 07:48:19",
+  "retention_days": 7,
   "transferCode": "7KQ2-9MXD-4PWA-8ZTH"
 }
 ```
@@ -243,6 +256,42 @@ curl -s -X POST https://YOUR_DOMAIN/api/inboxes/claim \
   -H "Content-Type: application/json" \
   -d '{"code":"7KQ2-9MXD-4PWA-8ZTH"}'
 ```
+
+---
+
+### POST `/api/inboxes/:address/renew`
+
+Restarts the inbox's retention clock (`created_at` = now). Must be linked to your session.
+
+**Response** `200 OK` — the inbox with its new `created_at`.
+
+```bash
+curl -s -X POST "https://YOUR_DOMAIN/api/inboxes/test123%40example.com/renew" \
+  -H "x-session-id: 550e8400-e29b-41d4-a716-446655440000"
+```
+
+---
+
+### PATCH `/api/inboxes/:address/retention`
+
+Changes the inbox's retention plan going forward. Must be linked to your session.
+
+**Request Body**
+
+| Field | Required | Description |
+|---|---|---|
+| `retentionDays` | **Yes** | `7`, `30`, `90`, or `"keep"` (until you remove it). Anything else → `400`. |
+
+```bash
+curl -s -X PATCH "https://YOUR_DOMAIN/api/inboxes/test123%40example.com/retention" \
+  -H "x-session-id: 550e8400-e29b-41d4-a716-446655440000" \
+  -H "Content-Type: application/json" \
+  -d '{"retentionDays":"keep"}'
+```
+
+**Notes**
+- `retention_days: null` in responses means keep-until-removed: the address never expires, but its messages still age out after 90 days (D1 is not an archive).
+- Changing the plan does not restart the clock — use `renew` for that.
 
 ---
 

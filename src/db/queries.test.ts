@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import {
   createInbox,
   getInbox,
+  renewInbox,
+  setInboxRetention,
+  parseRetentionDays,
   inboxExists,
   getSessionInboxes,
   getMessages,
@@ -100,5 +103,45 @@ describe('message queries', () => {
     const msgs = await getMessages(db, 'a@example.com');
     assert.equal(msgs.length, 2);
     assert.ok(msgs.every((m) => m.inbox_address === 'a@example.com'));
+  });
+});
+
+describe('retention plans', () => {
+  it('validates client retention choices', async () => {
+    assert.equal(parseRetentionDays(undefined), 7);
+    assert.equal(parseRetentionDays(null), 7);
+    assert.equal(parseRetentionDays(7), 7);
+    assert.equal(parseRetentionDays(30), 30);
+    assert.equal(parseRetentionDays('90'), 90);
+    assert.equal(parseRetentionDays('keep'), null);
+    assert.equal(parseRetentionDays('forever'), null);
+    assert.equal(parseRetentionDays(5), undefined);
+    assert.equal(parseRetentionDays('x'), undefined);
+    assert.equal(parseRetentionDays(-1), undefined);
+  });
+
+  it('stores the plan on create, defaulting to 7', async () => {
+    const db = createTestDb();
+    await createInbox(db, 'a@example.com');
+    await createInbox(db, 'b@example.com', 30);
+    await createInbox(db, 'c@example.com', null);
+    assert.equal((await getInbox(db, 'a@example.com'))?.retention_days, 7);
+    assert.equal((await getInbox(db, 'b@example.com'))?.retention_days, 30);
+    assert.equal((await getInbox(db, 'c@example.com'))?.retention_days, null);
+  });
+
+  it('renews the clock and changes the plan', async () => {
+    const db = createTestDb();
+    const exec = (sql: string, ...params: unknown[]) =>
+      (db.prepare(sql).bind(...params) as unknown as { run: () => Promise<unknown> }).run();
+    await exec(`INSERT INTO inboxes (address, created_at, retention_days) VALUES (?, ?, ?)`,
+      'a@example.com', '2020-01-01 00:00:00', 7);
+    await renewInbox(db, 'a@example.com');
+    const renewed = await getInbox(db, 'a@example.com');
+    assert.ok(renewed && renewed.created_at > '2020-01-01 00:00:00');
+    await setInboxRetention(db, 'a@example.com', 90);
+    assert.equal((await getInbox(db, 'a@example.com'))?.retention_days, 90);
+    await setInboxRetention(db, 'a@example.com', null);
+    assert.equal((await getInbox(db, 'a@example.com'))?.retention_days, null);
   });
 });

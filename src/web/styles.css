@@ -464,6 +464,36 @@ body {
   color: var(--color-ink);
 }
 
+/* Retention row: expiry line + plan picker under the reader title. */
+.retention-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+
+.retention-hint { margin: 0; flex: 1 1 auto; }
+
+.retention-row .micro { margin: 0; }
+
+.plan-select {
+  font: inherit;
+  font-size: var(--text-xs);
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: var(--rule);
+  border-radius: var(--radius-sm);
+  padding: 6px var(--space-2);
+  min-height: 36px;
+}
+
+.plan-select:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+  border-color: var(--color-focus);
+}
+
 .reader-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 
 .ledger-head {
