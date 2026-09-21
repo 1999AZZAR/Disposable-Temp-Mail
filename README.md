@@ -20,6 +20,7 @@ Sender → Cloudflare MX → Email Worker (email handler)
 - **No Postfix** — Cloudflare Email Workers handle SMTP ingestion natively
 - **No Docker** — just `wrangler deploy`
 - **Zero cost** — fits within Cloudflare's free tier
+- **Installable PWA** — add to home screen, offline app shell
 
 ---
 
@@ -190,9 +191,9 @@ If you don't already have an SPF record, add one so emails don't get flagged as 
 ## Step 8 — Test it
 
 1. Open `https://tmail.YOURDOMAIN.com` in your browser
-2. Click **New** → **Random** to create a disposable address
+2. Click **New** → **Create** to file a random address (or type a name first for a custom one)
 3. Send an email from Gmail/any provider to that address
-4. Click **Refresh** — the email appears in your inbox
+4. Press **R** (or the refresh control) — the email appears in the register
 
 ---
 
@@ -268,11 +269,24 @@ disposable-temp-mail/
 ## Abuse controls & retention
 
 - **Rate limits** (per hour, tunable in `wrangler.toml`): 20 inbox creations
-  per session, 10 new sessions per IP. Exceeded requests get `429` with
-  `Retry-After` and `X-RateLimit-*` headers.
-- **Retention:** a daily cron (`0 3 * * *`) deletes messages and empty inboxes
-  older than `RETENTION_DAYS` (default 7), sessions older than 30 days, and
-  stale rate-limit rows. Tune via `RETENTION_DAYS` in `[vars]`.
+  per session, 30 inbox creations per IP, 10 new sessions per IP, 30 transfer-code
+  claims per IP. Exceeded requests get `429` with `Retry-After` and
+  `X-RateLimit-*` headers.
+- **Bot gate (recommended for public instances):** inbox creation can require a
+  [Cloudflare Turnstile](https://dash.cloudflare.com/?to=/:account/turnstile)
+  token. Create a widget for your web host (Managed mode), then:
+  ```bash
+  npx wrangler vars set TURNSTILE_SITE_KEY    # Site Key (public)
+  npx wrangler secret put TURNSTILE_SECRET_KEY  # Secret Key (never commit this)
+  npx wrangler deploy
+  ```
+  The gate stays dormant until both are set.
+- **Retention:** each inbox carries its own keep-for plan — 7, 30, or 90 days,
+  or keep-until-removed — chosen at creation and changeable later (the reader
+  also offers Renew to restart the clock). A daily cron (`0 3 * * *`) deletes
+  empty inboxes past their plan (messages follow their inbox's plan, capped at
+  90 days), sessions older than 30 days, and stale rate-limit rows.
+  `RETENTION_DAYS` in `[vars]` is only a fallback for orphaned rows.
 
 ---
 
@@ -302,7 +316,7 @@ Should show `*.ns.cloudflare.com`. Propagation can take up to 24 hours after cha
 
 ### Emails not appearing in the web UI
 
-1. The email was received but the inbox hasn't been linked to your browser session. Click **New** → type the exact local-part → click **Create** to claim it.
+1. The email was received but the inbox hasn't been linked to your browser session. Click **New** → type the exact username → **Create** to file it (or paste its transfer code into the Link field).
 2. Check the database:
    ```bash
    npx wrangler d1 execute disposable-temp-mail-db --remote --command="SELECT * FROM messages ORDER BY received_at DESC LIMIT 5;"
