@@ -10,10 +10,13 @@ export interface PurgeResult {
 }
 
 /**
- * Cap (days) on message age inside keep-until-removed inboxes. The address
- * itself never expires, but D1 is not an archive — old mail still ages out.
+ * Ledger TTL (days): every ledger entry is deleted this long after it
+ * arrives, regardless of its address's retention plan. The address clock
+ * and the ledger clock are independent — a keep-forever address keeps
+ * working, but no single message lives here longer than this. Bounds D1
+ * growth so the archive can't explode.
  */
-export const KEEP_MESSAGE_CAP_DAYS = 90;
+export const LEDGER_TTL_DAYS = 90;
 
 /**
  * Delete expired data. Dependent session_inboxes links and transfer-code
@@ -21,33 +24,28 @@ export const KEEP_MESSAGE_CAP_DAYS = 90;
  * is safe even on databases that enforce foreign keys. Cutoffs are
  * computed in SQL so the cron needs no clock logic of its own.
  *
- * Retention is per-inbox (`inboxes.retention_days`): an inbox is removed
- * only once it is older than its own plan AND holds no messages, so an
- * active address never loses its mailbox early. NULL retention means
- * keep-until-removed — the address survives, its messages age out after
- * KEEP_MESSAGE_CAP_DAYS. The `retentionDays` argument is only a fallback
- * for orphaned rows whose parent inbox is gone.
+ * Two independent clocks:
+ * - Ledger: every message older than LEDGER_TTL_DAYS is deleted, on any
+ *   plan. R2 attachment bytes go with their message.
+ * - Addresses: an inbox is removed only once it is older than its own
+ *   plan (`inboxes.retention_days`) AND holds no messages, so an active
+ *   address never loses its mailbox early. NULL retention means
+ *   keep-until-removed — the address survives while its mail still ages
+ *   out on the ledger clock.
  */
 export async function purgeExpired(
   db: D1Database,
-  retentionDays: number,
   bucket?: R2Bucket
 ): Promise<PurgeResult> {
-  const days = Math.max(1, Math.floor(retentionDays) || 7);
-
-  // Messages age out per their parent inbox's plan (keep-forever capped).
+  // Ledger entries age out purely by arrival time — same rule on every plan.
   // Select ids first so attachment bytes in R2 can go with them.
-  const expiredCutoff = `datetime('now', '-' || COALESCE(
-            (SELECT COALESCE(retention_days, ${KEEP_MESSAGE_CAP_DAYS}) FROM inboxes WHERE address = messages.inbox_address),
-            ?
-          ) || ' days')`;
   let messageIds: string[] = [];
   let messagesDeleted = 0;
   let attachments = 0;
   for (;;) {
     const batch = await db
-      .prepare(`SELECT id FROM messages WHERE received_at < (${expiredCutoff}) LIMIT 200`)
-      .bind(days)
+      .prepare(`SELECT id FROM messages WHERE received_at < datetime('now', '-' || ? || ' days') LIMIT 200`)
+      .bind(LEDGER_TTL_DAYS)
       .all<{ id: string }>()
       .then((r) => r.results);
     if (!batch.length) break;

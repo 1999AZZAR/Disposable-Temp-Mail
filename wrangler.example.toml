@@ -39,8 +39,8 @@ bucket_name = "temp-mail-attachments"
 APP_NAME = "Disposable Temp Mail"
 MAIL_DOMAIN = "YOURDOMAIN.com"
 WEB_HOST = "tmail.YOURDOMAIN.com"
-# Data retention for messages/inboxes (days); sessions expire after 30 days
-RETENTION_DAYS = "7"
+# Address plans are per-inbox (7/30/90/keep); ledger entries auto-delete 90
+# days after arrival; sessions expire after 30 days
 # Abuse controls (allowed hits per hour)
 RATE_LIMIT_INBOXES_PER_HOUR = "20"
 RATE_LIMIT_INBOXES_PER_IP_PER_HOUR = "30"

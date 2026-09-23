@@ -39,7 +39,7 @@ describe('purgeExpired', () => {
     await s.message('m-old', 'old@example.com', '2020-01-01 00:00:00');
     await s.message('m-new', 'new@example.com', NOW);
 
-    const r = await purgeExpired(db, 7);
+    const r = await purgeExpired(db);
     assert.equal(r.messages, 1);
     assert.equal((await getMessages(db, 'old@example.com')).length, 0);
     assert.equal((await getMessages(db, 'new@example.com')).length, 1);
@@ -52,7 +52,7 @@ describe('purgeExpired', () => {
     await s.inbox('busy-old@example.com', '2020-01-01 00:00:00');
     await s.message('m1', 'busy-old@example.com', NOW);
 
-    const r = await purgeExpired(db, 7);
+    const r = await purgeExpired(db);
     assert.equal(r.inboxes, 1);
     assert.equal(await getInbox(db, 'empty-old@example.com'), null);
     assert.notEqual(await getInbox(db, 'busy-old@example.com'), null);
@@ -67,7 +67,7 @@ describe('purgeExpired', () => {
     await s.link('s-old', 'a@example.com');
     await s.rateHit('k', '2020-01-01 00:00:00');
 
-    const r = await purgeExpired(db, 7);
+    const r = await purgeExpired(db);
     assert.equal(r.sessions, 1);
     assert.equal(r.rateHits, 1);
     assert.deepEqual(await getSessionInboxes(db, 's-old'), []);
@@ -82,7 +82,7 @@ describe('purgeExpired', () => {
     const deadCode = await getOrCreateTransferCode(db, 'gone@example.com');
     const liveCode = await getOrCreateTransferCode(db, 'kept@example.com');
 
-    const r = await purgeExpired(db, 7);
+    const r = await purgeExpired(db);
     assert.equal(r.tokens, 1);
     assert.equal(await getAddressByTransferCode(db, deadCode), null);
     assert.equal(await getAddressByTransferCode(db, liveCode), 'kept@example.com');
@@ -100,7 +100,7 @@ describe('purgeExpired', () => {
     const deletedKeys: string[] = [];
     const bucket = { delete: async (keys: string[]) => { deletedKeys.push(...keys); } };
 
-    const r = await purgeExpired(db, 7, bucket as never);
+    const r = await purgeExpired(db, bucket as never);
     assert.equal(r.messages, 1);
     assert.equal(r.attachments, 1);
     assert.deepEqual(deletedKeys, ['att/m-old/att1']);
@@ -121,28 +121,29 @@ describe('per-inbox retention', () => {
     await s.inboxR('month@example.com', ago(30), 90);
     await s.inboxR('keep@example.com', ago(100), null);
 
-    const r = await purgeExpired(db, 7);
+    const r = await purgeExpired(db);
     assert.equal(r.inboxes, 1);
     assert.equal(await getInbox(db, 'week@example.com'), null);
     assert.notEqual(await getInbox(db, 'month@example.com'), null);
     assert.notEqual(await getInbox(db, 'keep@example.com'), null);
   });
 
-  it('messages follow the parent plan, keep-forever capped at 90 days', async () => {
+  it('ledger entries die 90 days after arrival on any plan', async () => {
     const db = createTestDb();
     const s = seed(db);
     await s.inboxR('week@example.com', NOW, 7);
     await s.inboxR('quarter@example.com', NOW, 90);
     await s.inboxR('keep@example.com', NOW, null);
-    await s.message('m-week-old', 'week@example.com', ago(20));
-    await s.message('m-quarter-old', 'quarter@example.com', ago(20));
+    await s.message('m-week-old', 'week@example.com', ago(100));
+    await s.message('m-week-young', 'week@example.com', ago(20));
+    await s.message('m-quarter-old', 'quarter@example.com', ago(100));
     await s.message('m-keep-old', 'keep@example.com', ago(100));
     await s.message('m-keep-fresh', 'keep@example.com', ago(30));
 
-    const r = await purgeExpired(db, 7);
-    assert.equal(r.messages, 2);
-    assert.deepEqual((await getMessages(db, 'week@example.com')).map((m) => m.id), []);
-    assert.deepEqual((await getMessages(db, 'quarter@example.com')).map((m) => m.id), ['m-quarter-old']);
+    const r = await purgeExpired(db);
+    assert.equal(r.messages, 3);
+    assert.deepEqual((await getMessages(db, 'week@example.com')).map((m) => m.id), ['m-week-young']);
+    assert.deepEqual((await getMessages(db, 'quarter@example.com')).map((m) => m.id), []);
     assert.deepEqual((await getMessages(db, 'keep@example.com')).map((m) => m.id), ['m-keep-fresh']);
   });
 });

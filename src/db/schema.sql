@@ -5,9 +5,9 @@ CREATE TABLE IF NOT EXISTS inboxes (
   address TEXT PRIMARY KEY,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   -- Per-inbox retention in days (7/30/90). NULL = kept until manually
-  -- removed (messages still capped, see cleanup.ts). The retention purge
-  -- uses this instead of any global cutoff, and Renew restarts the
-  -- clock by resetting created_at.
+  -- removed (ledger entries still auto-delete after 90 days, see
+  -- cleanup.ts). The retention purge uses this instead of any global
+  -- cutoff, and Renew restarts the clock by resetting created_at.
   retention_days INTEGER DEFAULT 7
 );
 
