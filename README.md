@@ -399,4 +399,4 @@ Comprehensive project documentation, security guides, and API contracts live in 
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+Apache-2.0 — see [LICENSE](./LICENSE).
