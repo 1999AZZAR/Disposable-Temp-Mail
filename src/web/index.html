@@ -217,6 +217,16 @@
       </form>
     </dialog>
 
+    <dialog class="confirm-dialog" id="consentDialog" aria-labelledby="consentDialogTitle">
+      <p class="micro" data-i18n="consent.kicker">Before you file</p>
+      <h2 id="consentDialogTitle" data-i18n="consent.title">Old enough to hold the keys?</h2>
+      <p data-i18n="consent.text">This service is for visitors aged 13 and up (or the minimum age in your jurisdiction). By continuing you confirm you meet the age requirement and accept the Terms of Use.</p>
+      <div class="confirm-actions">
+        <a class="btn btn-ghost" href="/terms.html" target="_blank" rel="noopener" data-i18n="consent.terms">Read the Terms</a>
+        <button type="button" class="btn btn-secondary" id="consentAgreeBtn" data-i18n="consent.agree">I am of age — enter</button>
+      </div>
+    </dialog>
+
     <div class="toast-region" id="toastContainer" aria-live="polite" aria-atomic="false"></div>
 
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>

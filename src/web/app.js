@@ -50,9 +50,12 @@ const els = {
   toastContainer: $("toastContainer"),
   themeToggle: $("themeToggle"),
   themeToggleLabel: $("themeToggleLabel"),
+  consentDialog: $("consentDialog"),
+  consentAgreeBtn: $("consentAgreeBtn"),
 };
 
 const SESSION_KEY = "disposable_temp_mail_session_id";
+const CONSENT_KEY = "tmail-consent";
 const REFRESH_INTERVAL_MS = 30000;
 
 const state = {
@@ -109,7 +112,7 @@ function applyI18n() {
   if (langLabel) langLabel.textContent = t("lang.toggle");
   els.appSubtitle.textContent = t("subtitle");
   const pageSuffix = lang === "id" ? "-id" : "";
-  for (const [key, page] of [["footer.guide", "docs"], ["footer.terms", "terms"], ["footer.privacy", "privacy"]]) {
+  for (const [key, page] of [["footer.guide", "docs"], ["footer.terms", "terms"], ["footer.privacy", "privacy"], ["consent.terms", "terms"]]) {
     const link = document.querySelector(`[data-i18n="${key}"]`);
     if (link) link.setAttribute("href", `/${page}${pageSuffix}.html`);
   }
@@ -282,7 +285,7 @@ async function loadConfig() {
   els.appTitle.textContent = state.config.appName;
   els.appSubtitle.textContent = t("subtitle");
   const pageSuffix = lang === "id" ? "-id" : "";
-  for (const [key, page] of [["footer.guide", "docs"], ["footer.terms", "terms"], ["footer.privacy", "privacy"]]) {
+  for (const [key, page] of [["footer.guide", "docs"], ["footer.terms", "terms"], ["footer.privacy", "privacy"], ["consent.terms", "terms"]]) {
     const link = document.querySelector(`[data-i18n="${key}"]`);
     if (link) link.setAttribute("href", `/${page}${pageSuffix}.html`);
   }
@@ -975,6 +978,23 @@ els.confirmStrikeBtn.addEventListener("click", (event) => {
   strikeMessage(id, button);
 });
 
+/* First-visit age gate: the visitor must explicitly confirm before filing. */
+function hasConsented() {
+  try { return localStorage.getItem(CONSENT_KEY) === "1"; } catch { return true; }
+}
+function gateConsent() {
+  if (hasConsented()) return;
+  if (typeof els.consentDialog.showModal !== "function") return;
+  els.consentDialog.showModal();
+}
+els.consentAgreeBtn.addEventListener("click", () => {
+  try { localStorage.setItem(CONSENT_KEY, "1"); } catch { /* private mode: gate reappears next visit */ }
+  els.consentDialog.close();
+});
+els.consentDialog.addEventListener("cancel", (event) => {
+  event.preventDefault(); /* Esc is not an answer — Agree or leave */
+});
+
 /* Keyboard layer: N = new entry, R = refresh. Inactive while typing. */
 document.addEventListener("keydown", (event) => {
   if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -983,6 +1003,7 @@ document.addEventListener("keydown", (event) => {
   if (typeof els.deleteDialog.open !== "undefined" && els.deleteDialog.open) return;
   if (typeof els.qrDialog.open !== "undefined" && els.qrDialog.open) return;
   if (typeof els.strikeDialog.open !== "undefined" && els.strikeDialog.open) return;
+  if (typeof els.consentDialog.open !== "undefined" && els.consentDialog.open) return;
   const key = event.key.toLowerCase();
   if (key === "n") {
     event.preventDefault();
@@ -1006,6 +1027,7 @@ window.setInterval(() => {
   try {
     setSessionBadge("", "session.connecting");
     applyI18n();
+    gateConsent();
     await loadConfig();
     applyI18n();
     await ensureSession();
