@@ -32,7 +32,7 @@ Returns the public app configuration.
   "mailDomain": "example.com",
   "mailDomains": ["example.com", "another-domain.my.id"],
   "webHost": "tmail.example.com",
-  "retentionOptions": [7, 30, 90],
+  "retentionOptions": [3, 7, 30, 90, 180],
   "defaultRetentionDays": 7
 }
 ```
@@ -43,7 +43,7 @@ Returns the public app configuration.
 | `mailDomain` | string | Default mail domain (first in the list, for backward compat) |
 | `mailDomains` | string[] | All available mail domains |
 | `webHost` | string | Web frontend hostname |
-| `retentionOptions` | number[] | Keep-for choices in days (`7`, `30`, `90`); `"keep"` (until removed) is always allowed too |
+| `retentionOptions` | number[] | Keep-for choices in days (`3`, `7`, `30`, `90`, `180`); `"keep"` (until removed) is always allowed too |
 | `defaultRetentionDays` | number | Plan used when the client sends no `retentionDays` |
 
 ---
@@ -136,7 +136,7 @@ Creates a new inbox (or claims an existing one) and links it to your session.
 | Field | Required | Description |
 |---|---|---|
 | `localPart` | No | Custom username (e.g. `"myname"`). Omit for a random address. |
-| `retentionDays` | No | Keep-for plan: `7`, `30`, `90`, or `"keep"` (until you remove it). Defaults to `7`. Invalid values are rejected with `400`. |
+| `retentionDays` | No | Keep-for plan: `3`, `7`, `30`, `90`, `180`, or `"keep"` (until you remove it). Defaults to `7`. Invalid values are rejected with `400`. |
 
 | `domain` | No | Domain override. Must be one of the allowed domains from `GET /api/config`'s `mailDomains`. Defaults to the first configured domain. Invalid domains are rejected with `400`. |
 | `turnstileToken` | Conditionally | Turnstile client token. **Required** when the server has `TURNSTILE_SITE_KEY` configured (the web UI attaches it automatically). Missing → `400`, failed verification → `403`. |
@@ -284,7 +284,7 @@ Changes the inbox's retention plan going forward. Must be linked to your session
 
 | Field | Required | Description |
 |---|---|---|
-| `retentionDays` | **Yes** | `7`, `30`, `90`, or `"keep"` (until you remove it). Anything else → `400`. |
+| `retentionDays` | **Yes** | `3`, `7`, `30`, `90`, `180`, or `"keep"` (until you remove it). Anything else → `400`. |
 
 ```bash
 curl -s -X PATCH "https://YOUR_DOMAIN/api/inboxes/test123%40example.com/retention" \

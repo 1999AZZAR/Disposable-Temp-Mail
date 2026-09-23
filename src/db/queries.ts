@@ -48,7 +48,7 @@ export interface Session {
 // ---- Retention ----
 
 /** Capped choices offered for per-inbox retention (days). */
-export const RETENTION_OPTIONS = [7, 30, 90] as const;
+export const RETENTION_OPTIONS = [3, 7, 30, 90, 180] as const;
 
 /** Server default when the client picks nothing. */
 export const DEFAULT_RETENTION_DAYS = 7;

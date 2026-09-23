@@ -134,9 +134,11 @@ describe('retention plans', () => {
   it('validates client retention choices', async () => {
     assert.equal(parseRetentionDays(undefined), 7);
     assert.equal(parseRetentionDays(null), 7);
+    assert.equal(parseRetentionDays(3), 3);
     assert.equal(parseRetentionDays(7), 7);
     assert.equal(parseRetentionDays(30), 30);
     assert.equal(parseRetentionDays('90'), 90);
+    assert.equal(parseRetentionDays(180), 180);
     assert.equal(parseRetentionDays('keep'), null);
     assert.equal(parseRetentionDays('forever'), null);
     assert.equal(parseRetentionDays(5), undefined);

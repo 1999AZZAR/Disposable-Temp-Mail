@@ -53,7 +53,7 @@ const SESSION_KEY = "disposable_temp_mail_session_id";
 const REFRESH_INTERVAL_MS = 30000;
 
 const state = {
-  config: { appName: "Disposable Temp Mail", mailDomain: "example.com", mailDomains: ["example.com"], retentionOptions: [7, 30, 90], defaultRetentionDays: 7 },
+  config: { appName: "Disposable Temp Mail", mailDomain: "example.com", mailDomains: ["example.com"], retentionOptions: [3, 7, 30, 90, 180], defaultRetentionDays: 7 },
   sessionId: localStorage.getItem(SESSION_KEY) || "",
   inboxes: [],
   selected: "",

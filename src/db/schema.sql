@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS inboxes (
   address TEXT PRIMARY KEY,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  -- Per-inbox retention in days (7/30/90). NULL = kept until manually
+  -- Per-inbox retention in days (3/7/30/90/180). NULL = kept until manually
   -- removed (ledger entries still auto-delete after 90 days, and an
   -- expired address takes its remaining ledger with it, see cleanup.ts).
   -- The retention purge uses this instead of any global cutoff, and
