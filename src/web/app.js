@@ -44,6 +44,9 @@ const els = {
   deleteDialog: $("deleteDialog"),
   deleteDialogText: $("deleteDialogText"),
   confirmDeleteBtn: $("confirmDeleteBtn"),
+  strikeDialog: $("strikeDialog"),
+  strikeDialogText: $("strikeDialogText"),
+  confirmStrikeBtn: $("confirmStrikeBtn"),
   toastContainer: $("toastContainer"),
   themeToggle: $("themeToggle"),
   themeToggleLabel: $("themeToggleLabel"),
@@ -645,7 +648,7 @@ function renderMessages() {
         strike.textContent = t("strike.btn");
         strike.addEventListener("click", (event) => {
           event.stopPropagation();
-          strikeMessage(message.id, strike);
+          openStrikeDialog(message.id, strike);
         });
         actions.appendChild(strike);
         body.appendChild(actions);
@@ -826,7 +829,6 @@ async function copySelected() {
 }
 
 async function strikeMessage(id, button) {
-  if (!window.confirm(t("confirm.strike"))) return;
   setBusy(button, true);
   try {
     await fetchJson(`/api/messages/${encodeURIComponent(id)}`, { method: "DELETE" });
@@ -951,6 +953,28 @@ els.confirmDeleteBtn.addEventListener("click", (event) => {
   removeSelected();
 });
 
+/* Strike confirmation reuses the same archival dialog pattern. */
+let pendingStrike = null;
+function openStrikeDialog(id, button) {
+  pendingStrike = { id, button };
+  els.strikeDialogText.textContent = t("dialog.strikeText");
+  if (typeof els.strikeDialog.showModal === "function") {
+    els.strikeDialog.showModal();
+  } else if (window.confirm(t("confirm.strike"))) {
+    strikeMessage(id, button);
+  }
+}
+els.confirmStrikeBtn.addEventListener("click", (event) => {
+  if (els.strikeDialog.returnValue === "cancel" || !pendingStrike) {
+    event.preventDefault();
+    pendingStrike = null;
+    return;
+  }
+  const { id, button } = pendingStrike;
+  pendingStrike = null;
+  strikeMessage(id, button);
+});
+
 /* Keyboard layer: N = new entry, R = refresh. Inactive while typing. */
 document.addEventListener("keydown", (event) => {
   if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -958,6 +982,7 @@ document.addEventListener("keydown", (event) => {
   if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT")) return;
   if (typeof els.deleteDialog.open !== "undefined" && els.deleteDialog.open) return;
   if (typeof els.qrDialog.open !== "undefined" && els.qrDialog.open) return;
+  if (typeof els.strikeDialog.open !== "undefined" && els.strikeDialog.open) return;
   const key = event.key.toLowerCase();
   if (key === "n") {
     event.preventDefault();

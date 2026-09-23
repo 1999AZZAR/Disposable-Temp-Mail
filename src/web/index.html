@@ -193,6 +193,16 @@
       </form>
     </dialog>
 
+    <dialog class="confirm-dialog" id="strikeDialog" aria-labelledby="strikeDialogTitle">
+      <p class="micro" data-i18n="dialog.strikeKicker">Strike from ledger</p>
+      <h2 id="strikeDialogTitle" data-i18n="dialog.strikeTitle">Strike this message?</h2>
+      <p id="strikeDialogText" data-i18n="dialog.strikeText">This permanently deletes the message and its attachments. The inbox itself is untouched.</p>
+      <form method="dialog" class="confirm-actions">
+        <button type="submit" class="btn btn-secondary" value="cancel" data-i18n="dialog.keep">Keep</button>
+        <button type="submit" class="btn btn-danger" id="confirmStrikeBtn" value="strike" data-i18n="dialog.strike">Strike</button>
+      </form>
+    </dialog>
+
     <dialog class="confirm-dialog" id="qrDialog" aria-labelledby="qrDialogTitle">
       <p class="micro" data-i18n="qr.micro">Transfer plate</p>
       <h2 id="qrDialogTitle" data-i18n="qr.title">Shelve this inbox elsewhere</h2>
