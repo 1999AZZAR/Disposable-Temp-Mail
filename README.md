@@ -328,8 +328,9 @@ disposable-temp-mail/
 - **Retention:** each inbox carries its own keep-for plan — 7, 30, or 90 days,
   or keep-until-removed — chosen at creation and changeable later (the reader
   also offers Renew to restart the clock). A daily cron (`0 3 * * *`) deletes
-  empty inboxes past their plan, every message older than 90 days whatever
-  the plan, sessions older than 30 days, and stale rate-limit rows.
+  inboxes past their plan together with their remaining messages, every
+  message older than 90 days whatever the plan, sessions older than
+  30 days, and stale rate-limit rows.
   Individual messages can also be struck from the ledger anytime — permanent
   and immediate, no waiting for the purge.
 

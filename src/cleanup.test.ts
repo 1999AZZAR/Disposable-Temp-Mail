@@ -45,7 +45,7 @@ describe('purgeExpired', () => {
     assert.equal((await getMessages(db, 'new@example.com')).length, 1);
   });
 
-  it('removes only old inboxes that hold no messages', async () => {
+  it('expired inboxes take their ledger with them', async () => {
     const db = createTestDb();
     const s = seed(db);
     await s.inbox('empty-old@example.com', '2020-01-01 00:00:00');
@@ -53,9 +53,11 @@ describe('purgeExpired', () => {
     await s.message('m1', 'busy-old@example.com', NOW);
 
     const r = await purgeExpired(db);
-    assert.equal(r.inboxes, 1);
+    assert.equal(r.inboxes, 2);
+    assert.equal(r.messages, 1);
     assert.equal(await getInbox(db, 'empty-old@example.com'), null);
-    assert.notEqual(await getInbox(db, 'busy-old@example.com'), null);
+    assert.equal(await getInbox(db, 'busy-old@example.com'), null);
+    assert.deepEqual(await getMessages(db, 'busy-old@example.com'), []);
   });
 
   it('drops old sessions with orphan links and stale rate rows', async () => {
@@ -77,7 +79,7 @@ describe('purgeExpired', () => {
     const db = createTestDb();
     const s = seed(db);
     await s.inbox('gone@example.com', '2020-01-01 00:00:00');
-    await s.inbox('kept@example.com', '2020-01-01 00:00:00');
+    await s.inbox('kept@example.com', NOW);
     await s.message('m1', 'kept@example.com', NOW);
     const deadCode = await getOrCreateTransferCode(db, 'gone@example.com');
     const liveCode = await getOrCreateTransferCode(db, 'kept@example.com');

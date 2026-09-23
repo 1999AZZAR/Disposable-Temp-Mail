@@ -11,45 +11,36 @@ export interface PurgeResult {
 
 /**
  * Ledger TTL (days): every ledger entry is deleted this long after it
- * arrives, regardless of its address's retention plan. The address clock
- * and the ledger clock are independent — a keep-forever address keeps
- * working, but no single message lives here longer than this. Bounds D1
- * growth so the archive can't explode.
+ * arrives, regardless of its address's retention plan. Bounds D1 growth
+ * so the archive can't explode.
  */
 export const LEDGER_TTL_DAYS = 90;
 
+interface MessagePurge {
+  messages: number;
+  attachments: number;
+}
+
 /**
- * Delete expired data. Dependent session_inboxes links and transfer-code
- * tokens are removed BEFORE their parent sessions/inboxes, so the purge
- * is safe even on databases that enforce foreign keys. Cutoffs are
- * computed in SQL so the cron needs no clock logic of its own.
- *
- * Two independent clocks:
- * - Ledger: every message older than LEDGER_TTL_DAYS is deleted, on any
- *   plan. R2 attachment bytes go with their message.
- * - Addresses: an inbox is removed only once it is older than its own
- *   plan (`inboxes.retention_days`) AND holds no messages, so an active
- *   address never loses its mailbox early. NULL retention means
- *   keep-until-removed — the address survives while its mail still ages
- *   out on the ledger clock.
+ * Delete messages matching a condition in 200-row batches, taking their
+ * attachment rows and R2 bytes with them.
  */
-export async function purgeExpired(
+async function purgeMessages(
   db: D1Database,
-  bucket?: R2Bucket
-): Promise<PurgeResult> {
-  // Ledger entries age out purely by arrival time — same rule on every plan.
-  // Select ids first so attachment bytes in R2 can go with them.
-  let messageIds: string[] = [];
-  let messagesDeleted = 0;
+  bucket: R2Bucket | undefined,
+  where: string,
+  ...params: unknown[]
+): Promise<MessagePurge> {
+  let messages = 0;
   let attachments = 0;
   for (;;) {
     const batch = await db
-      .prepare(`SELECT id FROM messages WHERE received_at < datetime('now', '-' || ? || ' days') LIMIT 200`)
-      .bind(LEDGER_TTL_DAYS)
+      .prepare(`SELECT id FROM messages WHERE ${where} LIMIT 200`)
+      .bind(...params)
       .all<{ id: string }>()
       .then((r) => r.results);
     if (!batch.length) break;
-    messageIds = batch.map((m) => m.id);
+    const messageIds = batch.map((m) => m.id);
     const placeholders = messageIds.map(() => '?').join(',');
     const keys = await db
       .prepare(`SELECT r2_key FROM attachments WHERE message_id IN (${placeholders})`)
@@ -60,14 +51,45 @@ export async function purgeExpired(
     attachments += keys.length;
     await db.prepare(`DELETE FROM attachments WHERE message_id IN (${placeholders})`).bind(...messageIds).run();
     const gone = await db.prepare(`DELETE FROM messages WHERE id IN (${placeholders})`).bind(...messageIds).run();
-    messagesDeleted += gone.meta.changes ?? 0;
+    messages += gone.meta.changes ?? 0;
   }
+  return { messages, attachments };
+}
 
-  // Inboxes past their own plan with no messages left.
+/**
+ * Delete expired data. Dependent session_inboxes links and transfer-code
+ * tokens are removed BEFORE their parent sessions/inboxes, so the purge
+ * is safe even on databases that enforce foreign keys. Cutoffs are
+ * computed in SQL so the cron needs no clock logic of its own.
+ *
+ * Two rules, applied in order:
+ * - Expired addresses take their ledger with them: everything belonging
+ *   to an inbox past its own plan (`inboxes.retention_days`, NULL means
+ *   keep-until-removed) is deleted, messages included. Renew restarts
+ *   the clock.
+ * - Ledger cap: any remaining message older than LEDGER_TTL_DAYS is
+ *   deleted, on any plan.
+ */
+export async function purgeExpired(
+  db: D1Database,
+  bucket?: R2Bucket
+): Promise<PurgeResult> {
+  // Inboxes past their own plan — expired addresses take their ledger.
   const expiredInbox = `SELECT address FROM inboxes
        WHERE retention_days IS NOT NULL
-       AND created_at < datetime('now', '-' || retention_days || ' days')
-       AND NOT EXISTS (SELECT 1 FROM messages WHERE messages.inbox_address = inboxes.address)`;
+       AND created_at < datetime('now', '-' || retention_days || ' days')`;
+
+  // 1. Ledger of expired addresses goes with them (R2 bytes included).
+  const doomed = await purgeMessages(db, bucket, `inbox_address IN (${expiredInbox})`);
+
+  // 2. Remaining entries age out purely by arrival time — same rule, every plan.
+  const aged = await purgeMessages(
+    db, bucket,
+    `received_at < datetime('now', '-' || ? || ' days')`,
+    LEDGER_TTL_DAYS
+  );
+  const messagesDeleted = doomed.messages + aged.messages;
+  const attachments = doomed.attachments + aged.attachments;
 
   // Links to sessions/inboxes that are about to expire — delete first (FK-safe)
   await db
