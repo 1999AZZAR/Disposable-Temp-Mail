@@ -170,4 +170,41 @@ describe('retention plans', () => {
     await setInboxRetention(db, 'a@example.com', null);
     assert.equal((await getInbox(db, 'a@example.com'))?.retention_days, null);
   });
+
+  it('restarts the clock only when shortening the plan', async () => {
+    const db = createTestDb();
+    const exec = (sql: string, ...params: unknown[]) =>
+      (db.prepare(sql).bind(...params) as unknown as { run: () => Promise<unknown> }).run();
+    const seed = (addr: string, created: string, plan: number | null) =>
+      exec(`INSERT INTO inboxes (address, created_at, retention_days) VALUES (?, ?, ?)`,
+        addr, created, plan);
+
+    // Shortening 7 -> 3 restarts the clock.
+    await seed('short@example.com', '2020-01-01 00:00:00', 7);
+    await setInboxRetention(db, 'short@example.com', 3);
+    let inbox = await getInbox(db, 'short@example.com');
+    assert.equal(inbox?.retention_days, 3);
+    assert.ok(inbox && inbox.created_at > '2020-01-01 00:00:00');
+
+    // Lengthening 3 -> 30 keeps the original clock.
+    const clock = inbox!.created_at;
+    await setInboxRetention(db, 'short@example.com', 30);
+    inbox = await getInbox(db, 'short@example.com');
+    assert.equal(inbox?.retention_days, 30);
+    assert.equal(inbox?.created_at, clock);
+
+    // Leaving keep-forever for a finite plan restarts the clock.
+    await seed('keep@example.com', '2020-01-01 00:00:00', null);
+    await setInboxRetention(db, 'keep@example.com', 7);
+    inbox = await getInbox(db, 'keep@example.com');
+    assert.equal(inbox?.retention_days, 7);
+    assert.ok(inbox && inbox.created_at > '2020-01-01 00:00:00');
+
+    // Switching a finite plan to keep preserves the clock.
+    await seed('finite@example.com', '2020-01-01 00:00:00', 7);
+    await setInboxRetention(db, 'finite@example.com', null);
+    inbox = await getInbox(db, 'finite@example.com');
+    assert.equal(inbox?.retention_days, null);
+    assert.equal(inbox?.created_at, '2020-01-01 00:00:00');
+  });
 });

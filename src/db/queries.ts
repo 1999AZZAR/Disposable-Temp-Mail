@@ -129,16 +129,37 @@ export async function renewInbox(db: D1Database, address: string): Promise<void>
     .run();
 }
 
-/** Change an inbox's retention plan going forward. */
+/**
+ * Change an inbox's retention plan going forward.
+ * Shortening the plan (or leaving keep-forever for a finite plan) also
+ * restarts the retention clock — otherwise the new, shorter window would be
+ * measured from the original creation time and could already be expired.
+ * Lengthening the plan keeps the original clock untouched.
+ */
 export async function setInboxRetention(
   db: D1Database,
   address: string,
   retentionDays: number | null
 ): Promise<void> {
-  await db
-    .prepare('UPDATE inboxes SET retention_days = ? WHERE address = ?')
-    .bind(retentionDays, address)
-    .run();
+  const current = await db
+    .prepare('SELECT retention_days FROM inboxes WHERE address = ?')
+    .bind(address)
+    .first<{ retention_days: number | null }>();
+  const prev = current?.retention_days ?? null;
+  const shorten = retentionDays !== null && (prev === null || retentionDays < prev);
+  if (shorten) {
+    await db
+      .prepare(
+        `UPDATE inboxes SET retention_days = ?, created_at = datetime('now') WHERE address = ?`
+      )
+      .bind(retentionDays, address)
+      .run();
+  } else {
+    await db
+      .prepare('UPDATE inboxes SET retention_days = ? WHERE address = ?')
+      .bind(retentionDays, address)
+      .run();
+  }
 }
 
 export async function getSessionInboxes(db: D1Database, sessionId: string): Promise<Inbox[]> {

@@ -295,7 +295,7 @@ curl -s -X PATCH "https://YOUR_DOMAIN/api/inboxes/test123%40example.com/retentio
 
 **Notes**
 - `retention_days: null` in responses means keep-until-removed: the address never expires on its own. Ledger entries are a separate clock — every message is deleted 90 days after arrival on any plan — but an expiring address takes its remaining ledger with it, so the database can't grow forever.
-- Changing the plan does not restart the clock — use `renew` for that.
+- Shortening the plan (or leaving keep-forever for a finite plan) also restarts the clock, so the new window starts now. Lengthening the plan — or switching to `"keep"` — keeps the original clock; use `renew` if you want a fresh start instead.
 
 ---
 
