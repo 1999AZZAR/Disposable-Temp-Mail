@@ -14,7 +14,30 @@ export interface Message {
   from_address: string;
   subject: string;
   body: string;
+  body_html?: string;
   received_at: string;
+}
+
+export interface Attachment {
+  id: string;
+  message_id: string;
+  filename: string;
+  mime_type: string;
+  size: number;
+  cid: string | null;
+}
+
+export interface AttachmentMeta {
+  id: string;
+  filename: string;
+  mime_type: string;
+  size: number;
+  cid: string | null;
+  inline: boolean;
+}
+
+export interface MessageWithAttachments extends Message {
+  attachments: AttachmentMeta[];
 }
 
 export interface Session {
@@ -40,6 +63,40 @@ export function parseRetentionDays(value: unknown): number | null | undefined {
   const n = typeof value === 'number' ? value : parseInt(String(value), 10);
   if ((RETENTION_OPTIONS as readonly number[]).includes(n)) return n;
   return undefined;
+}
+
+// ---- Schema drift ----
+
+/**
+ * Idempotent migration for databases created before a schema addition.
+ * schema.sql covers fresh installs; this backfills long-lived ones
+ * (prod D1) without a manual migrate step. Safe to call on every entry.
+ */
+export async function ensureSchema(db: D1Database): Promise<void> {
+  const cols = await db
+    .prepare(`SELECT name FROM pragma_table_info('messages')`)
+    .all<{ name: string }>()
+    .then((r) => r.results.map((c) => c.name));
+  if (!cols.includes('body_html')) {
+    await db.prepare(`ALTER TABLE messages ADD COLUMN body_html TEXT DEFAULT ''`).run();
+  }
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS attachments (
+        id TEXT PRIMARY KEY,
+        message_id TEXT NOT NULL,
+        filename TEXT NOT NULL,
+        mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+        size INTEGER NOT NULL DEFAULT 0,
+        cid TEXT,
+        r2_key TEXT NOT NULL,
+        FOREIGN KEY (message_id) REFERENCES messages(id)
+      )`
+    )
+    .run();
+  await db
+    .prepare(`CREATE INDEX IF NOT EXISTS idx_attachments_message ON attachments(message_id)`)
+    .run();
 }
 
 // ---- Inboxes ----
@@ -151,11 +208,101 @@ export async function insertMessage(
 ): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO messages (id, inbox_address, from_address, subject, body)
-       VALUES (?, ?, ?, ?, ?)`
+      `INSERT INTO messages (id, inbox_address, from_address, subject, body, body_html)
+       VALUES (?, ?, ?, ?, ?, ?)`
     )
-    .bind(msg.id, msg.inbox_address, msg.from_address, msg.subject, msg.body)
+    .bind(msg.id, msg.inbox_address, msg.from_address, msg.subject, msg.body, msg.body_html || '')
     .run();
+}
+
+/** Messages for an inbox, each with its attachment metadata (no bytes). */
+export async function getMessagesWithAttachments(
+  db: D1Database,
+  inboxAddress: string
+): Promise<MessageWithAttachments[]> {
+  const messages = await getMessages(db, inboxAddress);
+  if (!messages.length) return [];
+  const ids = messages.map((m) => m.id);
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = await db
+    .prepare(
+      `SELECT id, message_id, filename, mime_type, size, cid
+       FROM attachments WHERE message_id IN (${placeholders})`
+    )
+    .bind(...ids)
+    .all<Attachment>()
+    .then((r) => r.results);
+  const byMessage = new Map<string, AttachmentMeta[]>();
+  for (const a of rows) {
+    const list = byMessage.get(a.message_id) || [];
+    list.push({ id: a.id, filename: a.filename, mime_type: a.mime_type, size: a.size, cid: a.cid, inline: !!a.cid });
+    byMessage.set(a.message_id, list);
+  }
+  return messages.map((m) => ({ ...m, attachments: byMessage.get(m.id) || [] }));
+}
+
+// ---- Attachments ----
+
+export async function insertAttachment(db: D1Database, att: Attachment & { r2_key: string }): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO attachments (id, message_id, filename, mime_type, size, cid, r2_key)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(att.id, att.message_id, att.filename, att.mime_type, att.size, att.cid, att.r2_key)
+    .run();
+}
+
+/** Attachment row only when its message belongs to the session. */
+export async function getAttachmentForSession(
+  db: D1Database,
+  sessionId: string,
+  attachmentId: string
+): Promise<Attachment & { r2_key: string } | null> {
+  return db
+    .prepare(
+      `SELECT a.* FROM attachments a
+       INNER JOIN messages m ON m.id = a.message_id
+       INNER JOIN session_inboxes si ON si.inbox_address = m.inbox_address
+       WHERE a.id = ? AND si.session_id = ?`
+    )
+    .bind(attachmentId, sessionId)
+    .first<Attachment & { r2_key: string }>();
+}
+
+/** Message HTML only when its inbox belongs to the session. */
+export async function getMessageHtmlForSession(
+  db: D1Database,
+  sessionId: string,
+  messageId: string
+): Promise<string | null> {
+  const row = await db
+    .prepare(
+      `SELECT m.body_html FROM messages m
+       INNER JOIN session_inboxes si ON si.inbox_address = m.inbox_address
+       WHERE m.id = ? AND si.session_id = ?`
+    )
+    .bind(messageId, sessionId)
+    .first<{ body_html: string }>();
+  return row ? row.body_html || '' : null;
+}
+/** R2 keys for a message's attachments (session-scoped), for cleanup on delete. */
+export async function attachmentKeysForMessage(
+  db: D1Database,
+  sessionId: string,
+  messageId: string
+): Promise<string[]> {
+  const rows = await db
+    .prepare(
+      `SELECT a.r2_key FROM attachments a
+       INNER JOIN messages m ON m.id = a.message_id
+       INNER JOIN session_inboxes si ON si.inbox_address = m.inbox_address
+       WHERE a.message_id = ? AND si.session_id = ?`
+    )
+    .bind(messageId, sessionId)
+    .all<{ r2_key: string }>()
+    .then((r) => r.results);
+  return rows.map((r) => r.r2_key);
 }
 
 export async function deleteMessage(
@@ -163,6 +310,16 @@ export async function deleteMessage(
   sessionId: string,
   messageId: string
 ): Promise<number> {
+  await db
+    .prepare(
+      `DELETE FROM attachments WHERE message_id = ? AND EXISTS (
+         SELECT 1 FROM messages m
+         JOIN session_inboxes si ON si.inbox_address = m.inbox_address
+         WHERE m.id = ? AND si.session_id = ?
+       )`
+    )
+    .bind(messageId, messageId, sessionId)
+    .run();
   const result = await db
     .prepare(
       `DELETE FROM messages WHERE id = ?

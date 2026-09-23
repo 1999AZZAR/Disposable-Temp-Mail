@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import type { D1Database } from '@cloudflare/workers-types';
+import type { D1Database, R2Bucket } from '@cloudflare/workers-types';
 import {
   getInbox,
   createInbox,
@@ -10,7 +10,10 @@ import {
   RETENTION_OPTIONS,
   DEFAULT_RETENTION_DAYS,
   getSessionInboxes,
-  getMessages,
+  getMessagesWithAttachments,
+  getAttachmentForSession,
+  getMessageHtmlForSession,
+  attachmentKeysForMessage,
   deleteMessage,
   ensureSession,
   linkInboxToSession,
@@ -36,6 +39,7 @@ export interface ApiEnv {
   RATE_LIMIT_CLAIMS_PER_HOUR?: string;
   TURNSTILE_SITE_KEY?: string;
   TURNSTILE_SECRET_KEY?: string;
+  ATTACHMENTS?: R2Bucket;
 }
 
 function numVar(value: string | undefined, fallback: number): number {
@@ -273,8 +277,8 @@ api.get('/inboxes/:address/messages', async (c) => {
     return c.json({ error: 'Inbox not in this session' }, 403);
   }
 
-  const messages = await getMessages(c.env.DB, address);
-  return c.json(messages);
+  const messages = await getMessagesWithAttachments(c.env.DB, address);
+  return c.json(messages.map((m) => ({ ...m, body_html: undefined, hasHtml: !!m.body_html })));
 });
 
 // ---- DELETE /api/messages/:id ----
@@ -283,9 +287,59 @@ api.delete('/messages/:id', async (c) => {
   if (!sid) return c.json({ error: 'Missing x-session-id' }, 400);
 
   const id = decodeURIComponent(c.req.param('id'));
+  const keys = await attachmentKeysForMessage(c.env.DB, sid, id);
   const deleted = await deleteMessage(c.env.DB, sid, id);
   if (!deleted) return c.json({ error: 'Message not found' }, 404);
+  if (c.env.ATTACHMENTS && keys.length) {
+    try { await c.env.ATTACHMENTS.delete(keys); } catch (e) { console.error('[api] R2 delete failed:', e); }
+  }
   return c.json({ ok: true });
+});
+
+// ---- GET /api/messages/:id/html ----
+// Sanitized-at-store rich HTML, session-scoped. The reader renders this
+// only inside a sandboxed iframe (no scripts), never via innerHTML.
+api.get('/messages/:id/html', async (c) => {
+  const sid = requireSession(c);
+  if (!sid) return c.json({ error: 'Missing x-session-id' }, 400);
+
+  const id = decodeURIComponent(c.req.param('id'));
+  const html = await getMessageHtmlForSession(c.env.DB, sid, id);
+  if (html === null) return c.json({ error: 'Message not found' }, 404);
+  return new Response(html, {
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src cid: data: blob:; font-src data:",
+    },
+  });
+});
+
+// ---- GET /api/attachments/:id ----
+// Always served as a download (never inline): with user-controlled bytes,
+// `attachment` disposition + nosniff keeps SVG/HTML payloads inert.
+api.get('/attachments/:id', async (c) => {
+  const sid = requireSession(c);
+  if (!sid) return c.json({ error: 'Missing x-session-id' }, 400);
+  if (!c.env.ATTACHMENTS) return c.json({ error: 'Attachments not configured' }, 501);
+
+  const id = decodeURIComponent(c.req.param('id'));
+  const att = await getAttachmentForSession(c.env.DB, sid, id);
+  if (!att) return c.json({ error: 'Attachment not found' }, 404);
+
+  const obj = await c.env.ATTACHMENTS.get(att.r2_key);
+  if (!obj) return c.json({ error: 'Attachment not found' }, 404);
+
+  const safeName = att.filename.replace(/["\\\r\n]/g, '_');
+  return new Response(obj.body, {
+    headers: {
+      'Content-Type': att.mime_type,
+      'Content-Length': String(att.size),
+      'Content-Disposition': `attachment; filename="${safeName}"`,
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'private, max-age=3600',
+    },
+  });
 });
 
 export default api;

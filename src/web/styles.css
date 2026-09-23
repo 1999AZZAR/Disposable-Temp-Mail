@@ -572,6 +572,11 @@ body {
 }
 
 .message-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.view-toggle { display: flex; gap: var(--space-2); margin-bottom: var(--space-3); }
+.view-toggle .btn.is-active { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-paper); }
+.rich-frame { width: 100%; min-height: 24rem; border: 1px solid var(--color-border); border-radius: var(--radius); background: #fff; }
+.attachment-list { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; margin-top: var(--space-3); }
+.attachment-label { font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-muted); }
 .message-actions { display: flex; justify-content: flex-end; margin-top: var(--space-3); }
 
 .empty-state { padding: var(--space-12) var(--space-4); text-align: left; }

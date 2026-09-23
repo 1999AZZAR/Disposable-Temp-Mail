@@ -59,6 +59,8 @@ const state = {
   selected: "",
   messages: [],
   openMessage: "",
+  richView: {},
+  htmlCache: {},
   loadingMessages: false,
 };
 
@@ -600,10 +602,40 @@ function renderMessages() {
     if (state.openMessage === id) {
       const body = document.createElement("div");
       body.className = "message-body";
-      const text = document.createElement("p");
-      text.className = "message-text";
-      text.textContent = message.body || "";
-      body.appendChild(text);
+
+      // Text / Original toggle (rich HTML arrives sanitized + sandboxed)
+      if (message.hasHtml) {
+        const toggle = document.createElement("div");
+        toggle.className = "view-toggle";
+        toggle.setAttribute("role", "group");
+        for (const mode of ["text", "original"]) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "btn btn-ghost" + (richMode(id) === mode ? " is-active" : "");
+          btn.textContent = t(mode === "text" ? "view.text" : "view.original");
+          btn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            state.richView[id] = mode;
+            renderMessages();
+          });
+          toggle.appendChild(btn);
+        }
+        body.appendChild(toggle);
+      }
+
+      if (message.hasHtml && richMode(id) === "original") {
+        body.appendChild(richFrame(message));
+      } else {
+        const text = document.createElement("p");
+        text.className = "message-text";
+        text.textContent = message.body || "";
+        body.appendChild(text);
+      }
+
+      if (Array.isArray(message.attachments) && message.attachments.length) {
+        body.appendChild(attachmentList(message));
+      }
+
       if (message.id) {
         const actions = document.createElement("div");
         actions.className = "message-actions";
@@ -623,6 +655,122 @@ function renderMessages() {
 
     els.messageList.appendChild(row);
   });
+}
+
+/* ---------- Rich view + attachments ---------- */
+
+function richMode(id) {
+  return state.richView && state.richView[id] === "original" ? "original" : "text";
+}
+
+// Sandboxed frame: scripts never run (sandbox=""), HTML was already
+// sanitized server-side at store time. cid: images resolve to
+// session-scoped attachment URLs fetched with the session header.
+function richFrame(message) {
+  const frame = document.createElement("iframe");
+  frame.className = "rich-frame";
+  frame.setAttribute("sandbox", "");
+  frame.setAttribute("title", message.subject || t("noSubject"));
+  frame.textContent = t("view.loading");
+
+  const cached = state.htmlCache && state.htmlCache[message.id];
+  if (cached) {
+    frame.srcdoc = cached;
+    return frame;
+  }
+
+  const headers = {};
+  if (state.sessionId) headers["x-session-id"] = state.sessionId;
+  fetch(`/api/messages/${encodeURIComponent(message.id)}/html`, { headers })
+    .then((response) => {
+      if (!response.ok) throw new Error(response.statusText);
+      return response.text();
+    })
+    .then(async (html) => {
+      frame.srcdoc = await resolveInlineImages(html, message);
+      state.htmlCache = state.htmlCache || {};
+      state.htmlCache[message.id] = frame.srcdoc;
+    })
+    .catch((error) => {
+      frame.srcdoc = "";
+      frame.textContent = t("err.html", { e: String(error.message || error) });
+    });
+  return frame;
+}
+
+async function resolveInlineImages(html, message) {
+  const inline = (message.attachments || []).filter((a) => a.cid);
+  if (!inline.length || !/cid:/i.test(html)) return html;
+  const headers = {};
+  if (state.sessionId) headers["x-session-id"] = state.sessionId;
+  let out = html;
+  for (const att of inline) {
+    try {
+      const response = await fetch(`/api/attachments/${encodeURIComponent(att.id)}`, { headers });
+      if (!response.ok) continue;
+      const url = URL.createObjectURL(await response.blob());
+      const cid = att.cid.replace(/^[<]+|[>]+$/g, "");
+      out = out.split(`cid:${att.cid}`).join(url).split(`cid:${cid}`).join(url);
+    } catch {
+      // Leave the cid: reference — broken image, message still readable.
+    }
+  }
+  return out;
+}
+
+function formatBytes(n) {
+  const bytes = Number(n) || 0;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function attachmentList(message) {
+  const wrap = document.createElement("div");
+  wrap.className = "attachment-list";
+  const label = document.createElement("span");
+  label.className = "attachment-label";
+  label.textContent = t("att.title");
+  wrap.appendChild(label);
+  for (const att of message.attachments) {
+    if (att.inline) continue;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-ghost attachment-chip";
+    btn.textContent = `${att.filename} · ${formatBytes(att.size)}`;
+    btn.setAttribute("aria-label", t("att.download", { f: att.filename }));
+    btn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      downloadAttachment(att, btn);
+    });
+    wrap.appendChild(btn);
+  }
+  if (wrap.children.length === 1) return document.createComment("inline-only");
+  return wrap;
+}
+
+async function downloadAttachment(att, btn) {
+  setBusy(btn, true);
+  try {
+    const headers = {};
+    if (state.sessionId) headers["x-session-id"] = state.sessionId;
+    const response = await fetch(`/api/attachments/${encodeURIComponent(att.id)}`, { headers });
+    if (!response.ok) throw new Error(response.statusText);
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = att.filename || "attachment";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    flashButton(btn, "success");
+  } catch (error) {
+    toast(t("err.att", { e: String(error.message || error) }));
+    flashButton(btn, "error");
+  } finally {
+    setBusy(btn, false);
+  }
 }
 
 async function loadMessages() {

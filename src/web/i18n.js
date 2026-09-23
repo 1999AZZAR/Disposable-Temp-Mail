@@ -101,6 +101,14 @@ window.TMAIL_I18N = {
     "msg.one": "{n} message",
     "msg.many": "{n} messages",
     "remove.confirm": "Remove {a} from this session? This only unlinks the address from your browser.",
+    "view.text": "Text",
+    "view.original": "Original",
+    "view.loading": "Loading original…",
+    "view.empty": "No rich version for this message.",
+    "att.title": "Attachments",
+    "att.download": "Download {f}",
+    "err.att": "Could not download attachment: {e}",
+    "err.html": "Could not load original: {e}",
     "lang.toggle": "ID"
   },
   id: {
@@ -197,6 +205,14 @@ window.TMAIL_I18N = {
     "msg.one": "{n} pesan",
     "msg.many": "{n} pesan",
     "remove.confirm": "Hapus {a} dari sesi ini? Ini hanya melepas tautan alamat dari peramban Anda.",
+    "view.text": "Teks",
+    "view.original": "Asli",
+    "view.loading": "Memuat versi asli…",
+    "view.empty": "Tidak ada versi kaya untuk pesan ini.",
+    "att.title": "Lampiran",
+    "att.download": "Unduh {f}",
+    "err.att": "Tidak dapat mengunduh lampiran: {e}",
+    "err.html": "Tidak dapat memuat versi asli: {e}",
     "lang.toggle": "EN"
   }
 };

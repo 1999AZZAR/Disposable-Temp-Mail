@@ -6,7 +6,7 @@
  * occurred"). Only genuine same-origin 200s (response.type "basic") are
  * ever stored. Version the cache name on shell changes. */
 
-const CACHE_NAME = "tmail-shell-v7";
+const CACHE_NAME = "tmail-shell-v8";
 const SHELL = [
   "/",
   "/index.html",

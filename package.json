@@ -8,7 +8,7 @@
     "db:create": "wrangler d1 create disposable-temp-mail-db",
     "db:migrate": "wrangler d1 execute disposable-temp-mail-db --remote --file=src/db/schema.sql",
     "db:local": "wrangler d1 execute disposable-temp-mail-db --local --file=src/db/schema.sql",
-    "test": "node --test src/utils/random-address.test.ts src/utils/rate-limit.test.ts src/utils/claim-token.test.ts src/utils/turnstile.test.ts src/db/queries.test.ts src/cleanup.test.ts src/email-handler.test.ts"
+    "test": "node --test src/utils/random-address.test.ts src/utils/rate-limit.test.ts src/utils/claim-token.test.ts src/utils/turnstile.test.ts src/utils/sanitize-html.test.ts src/db/queries.test.ts src/db/attachments.test.ts src/cleanup.test.ts src/email-handler.test.ts"
   },
   "dependencies": {
     "hono": "^4.13.8",

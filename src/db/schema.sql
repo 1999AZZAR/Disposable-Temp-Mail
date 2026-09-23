@@ -17,6 +17,10 @@ CREATE TABLE IF NOT EXISTS messages (
   from_address TEXT NOT NULL,
   subject TEXT DEFAULT '(no subject)',
   body TEXT DEFAULT '',
+  -- Sanitized rich HTML (worker-side allowlist, see sanitize-html.ts).
+  -- Empty when the mail had no HTML part. Rendered only inside a
+  -- sandboxed iframe, never via innerHTML.
+  body_html TEXT DEFAULT '',
   received_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (inbox_address) REFERENCES inboxes(address)
 );
@@ -59,3 +63,18 @@ CREATE TABLE IF NOT EXISTS inbox_tokens (
 );
 
 CREATE INDEX IF NOT EXISTS idx_inbox_tokens_token ON inbox_tokens(token);
+
+-- Attachments: metadata lives here, bytes live in R2 (ATTACHMENTS bucket,
+-- key att/<message_id>/<id>). cid links inline images for rich rendering.
+CREATE TABLE IF NOT EXISTS attachments (
+  id TEXT PRIMARY KEY,
+  message_id TEXT NOT NULL,
+  filename TEXT NOT NULL,
+  mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+  size INTEGER NOT NULL DEFAULT 0,
+  cid TEXT,
+  r2_key TEXT NOT NULL,
+  FOREIGN KEY (message_id) REFERENCES messages(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_attachments_message ON attachments(message_id);

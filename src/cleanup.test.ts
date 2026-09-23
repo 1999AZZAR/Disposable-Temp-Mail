@@ -87,6 +87,27 @@ describe('purgeExpired', () => {
     assert.equal(await getAddressByTransferCode(db, deadCode), null);
     assert.equal(await getAddressByTransferCode(db, liveCode), 'kept@example.com');
   });
+
+  it('removes attachment rows and R2 bytes with expired messages', async () => {
+    const db = createTestDb();
+    const s = seed(db);
+    await s.inbox('old@example.com', '2020-01-01 00:00:00');
+    await s.message('m-old', 'old@example.com', '2020-01-01 00:00:00');
+    await (db.prepare(
+      `INSERT INTO attachments (id, message_id, filename, mime_type, size, cid, r2_key)
+       VALUES ('att1', 'm-old', 'f.bin', 'application/octet-stream', 3, NULL, 'att/m-old/att1')`
+    ) as unknown as { run: () => Promise<unknown> }).run();
+    const deletedKeys: string[] = [];
+    const bucket = { delete: async (keys: string[]) => { deletedKeys.push(...keys); } };
+
+    const r = await purgeExpired(db, 7, bucket as never);
+    assert.equal(r.messages, 1);
+    assert.equal(r.attachments, 1);
+    assert.deepEqual(deletedKeys, ['att/m-old/att1']);
+    const leftovers = await db.prepare('SELECT id FROM attachments')
+      .all<{ id: string }>().then((x) => x.results);
+    assert.deepEqual(leftovers, []);
+  });
 });
 
 describe('per-inbox retention', () => {

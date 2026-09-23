@@ -27,6 +27,12 @@ custom_domain = true
 [triggers]
 crons = ["0 3 * * *"]
 
+# ---- R2 bucket (attachment bytes; metadata stays in D1) ----
+# Create it once: `npx wrangler r2 bucket create temp-mail-attachments`
+[[r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "temp-mail-attachments"
+
 # ---- Environment variables ----
 # CHANGE THESE to your own domain
 [vars]

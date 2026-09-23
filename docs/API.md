@@ -400,10 +400,16 @@ Fetches all messages for a given inbox. The inbox must be linked to your session
     "from_address": "someone@gmail.com",
     "subject": "Hello",
     "body": "This is the email body",
+    "hasHtml": true,
+    "attachments": [
+      { "id": "att_9f2c1a", "filename": "invoice.pdf", "mime_type": "application/pdf", "size": 48210, "cid": null, "inline": false }
+    ],
     "received_at": "2026-06-26 08:10:14"
   }
 ]
 ```
+
+`hasHtml` marks a sanitized rich version (see `GET /api/messages/:id/html`); raw `body_html` is never inlined in the list. `attachments` is metadata only — bytes download per file. Caps: 5 files per message, 5 MB per file, 10 MB total; oversized parts are dropped with a log line.
 
 **Errors**
 
@@ -418,6 +424,33 @@ Fetches all messages for a given inbox. The inbox must be linked to your session
 curl -s "https://YOUR_DOMAIN/api/inboxes/test123%40example.com/messages" \
   -H "x-session-id: 550e8400-e29b-41d4-a716-446655440000"
 ```
+
+---
+
+### GET `/api/messages/:id/html`
+
+Returns the sanitized rich-HTML version of a message (`text/html`). Session-scoped like everything else. The web reader renders this only inside a sandboxed iframe; if you embed it yourself, keep it sandboxed — treat it as untrusted sender content. Returns an empty body when the mail had no HTML part.
+
+**Errors**
+
+| Status | Message | Meaning |
+|---|---|---|
+| `400` | `Missing x-session-id` | No session header |
+| `404` | `Message not found` | Unknown id, or not in your session |
+
+---
+
+### GET `/api/attachments/:id`
+
+Downloads one attachment's bytes. Always served as `Content-Disposition: attachment` with `nosniff`, so even SVG/HTML payloads stay inert. Session-scoped; inline images (`cid:`) resolve through this same endpoint.
+
+**Errors**
+
+| Status | Message | Meaning |
+|---|---|---|
+| `400` | `Missing x-session-id` | No session header |
+| `404` | `Attachment not found` | Unknown id, not in your session, or bytes already purged |
+| `501` | `Attachments not configured` | No R2 bucket bound (self-hosted without R2) |
 
 ---
 

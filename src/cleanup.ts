@@ -1,4 +1,4 @@
-import type { D1Database } from '@cloudflare/workers-types';
+import type { D1Database, R2Bucket } from '@cloudflare/workers-types';
 
 export interface PurgeResult {
   messages: number;
@@ -6,6 +6,7 @@ export interface PurgeResult {
   sessions: number;
   rateHits: number;
   tokens: number;
+  attachments: number;
 }
 
 /**
@@ -27,22 +28,42 @@ export const KEEP_MESSAGE_CAP_DAYS = 90;
  * KEEP_MESSAGE_CAP_DAYS. The `retentionDays` argument is only a fallback
  * for orphaned rows whose parent inbox is gone.
  */
-export async function purgeExpired(db: D1Database, retentionDays: number): Promise<PurgeResult> {
+export async function purgeExpired(
+  db: D1Database,
+  retentionDays: number,
+  bucket?: R2Bucket
+): Promise<PurgeResult> {
   const days = Math.max(1, Math.floor(retentionDays) || 7);
 
   // Messages age out per their parent inbox's plan (keep-forever capped).
-  const messages = await db
-    .prepare(
-      `DELETE FROM messages
-       WHERE received_at < (
-         SELECT datetime('now', '-' || COALESCE(
-           (SELECT COALESCE(retention_days, ${KEEP_MESSAGE_CAP_DAYS}) FROM inboxes WHERE address = messages.inbox_address),
-           ?
-         ) || ' days')
-       )`
-    )
-    .bind(days)
-    .run();
+  // Select ids first so attachment bytes in R2 can go with them.
+  const expiredCutoff = `datetime('now', '-' || COALESCE(
+            (SELECT COALESCE(retention_days, ${KEEP_MESSAGE_CAP_DAYS}) FROM inboxes WHERE address = messages.inbox_address),
+            ?
+          ) || ' days')`;
+  let messageIds: string[] = [];
+  let messagesDeleted = 0;
+  let attachments = 0;
+  for (;;) {
+    const batch = await db
+      .prepare(`SELECT id FROM messages WHERE received_at < (${expiredCutoff}) LIMIT 200`)
+      .bind(days)
+      .all<{ id: string }>()
+      .then((r) => r.results);
+    if (!batch.length) break;
+    messageIds = batch.map((m) => m.id);
+    const placeholders = messageIds.map(() => '?').join(',');
+    const keys = await db
+      .prepare(`SELECT r2_key FROM attachments WHERE message_id IN (${placeholders})`)
+      .bind(...messageIds)
+      .all<{ r2_key: string }>()
+      .then((r) => r.results);
+    if (bucket) await bucket.delete(keys.map((k) => k.r2_key));
+    attachments += keys.length;
+    await db.prepare(`DELETE FROM attachments WHERE message_id IN (${placeholders})`).bind(...messageIds).run();
+    const gone = await db.prepare(`DELETE FROM messages WHERE id IN (${placeholders})`).bind(...messageIds).run();
+    messagesDeleted += gone.meta.changes ?? 0;
+  }
 
   // Inboxes past their own plan with no messages left.
   const expiredInbox = `SELECT address FROM inboxes
@@ -91,10 +112,11 @@ export async function purgeExpired(db: D1Database, retentionDays: number): Promi
     .run();
 
   return {
-    messages: messages.meta.changes ?? 0,
+    messages: messagesDeleted,
     inboxes: inboxes.meta.changes ?? 0,
     sessions: sessions.meta.changes ?? 0,
     rateHits: rateHits.meta.changes ?? 0,
     tokens: tokens.meta.changes ?? 0,
+    attachments,
   };
 }

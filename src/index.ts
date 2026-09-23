@@ -1,6 +1,7 @@
 import api from './api/routes.ts';
 import { handleEmail } from './email-handler.ts';
 import { purgeExpired } from './cleanup.ts';
+import { ensureSchema } from './db/queries.ts';
 import type { EmailHandlerEnv } from './email-handler.ts';
 import type { ApiEnv } from './api/routes.ts';
 
@@ -28,6 +29,7 @@ export default {
       const apiUrl = new URL(request.url);
       apiUrl.pathname = url.pathname.slice(4); // strip '/api'
       const apiRequest = new Request(apiUrl, request);
+      await ensureSchema(env.DB).catch((e) => console.error('[schema] ensure failed:', e));
       return api.fetch(apiRequest, env, ctx);
     }
 
@@ -49,7 +51,8 @@ export default {
    */
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
     const retention = parseInt(env.RETENTION_DAYS || '7', 10);
-    const result = await purgeExpired(env.DB, Number.isFinite(retention) && retention > 0 ? retention : 7);
-    console.log(`cleanup: ${result.messages} messages, ${result.inboxes} inboxes, ${result.sessions} sessions, ${result.rateHits} rate rows purged`);
+    await ensureSchema(env.DB).catch((e) => console.error('[schema] ensure failed:', e));
+    const result = await purgeExpired(env.DB, Number.isFinite(retention) && retention > 0 ? retention : 7, env.ATTACHMENTS);
+    console.log(`cleanup: ${result.messages} messages, ${result.attachments} attachments, ${result.inboxes} inboxes, ${result.sessions} sessions, ${result.rateHits} rate rows purged`);
   },
 };
