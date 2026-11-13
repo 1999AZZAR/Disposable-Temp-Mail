@@ -11,7 +11,7 @@
     "test": "node --test src/utils/random-address.test.ts src/utils/rate-limit.test.ts src/utils/claim-token.test.ts src/utils/turnstile.test.ts src/utils/sanitize-html.test.ts src/db/queries.test.ts src/db/attachments.test.ts src/cleanup.test.ts src/email-handler.test.ts"
   },
   "dependencies": {
-    "hono": "^4.13.8",
+    "hono": "^4.13.16",
     "postal-mime": "^2.4.0"
   },
   "devDependencies": {
